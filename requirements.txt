@@ -1,1 +1,5 @@
+requests
 websocket-client
+ccxt
+openpyxl
+flask
