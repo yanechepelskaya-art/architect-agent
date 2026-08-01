@@ -1436,7 +1436,7 @@ def process_updates():
                     f"<i>Архитектор, будь против толпы. Страх — покупай. Жадность — продавай.</i>"
                 )
                 send_tg(reply)
-            elif t in ["/link", "🔗 Ссылка"]: send_tg("🔗 http://127.0.0.1:5000")
+            elif t in ["/link", "🔗 Ссылка"]: send_tg("🔗 http://192.168.1.195:5000")
     except: pass
 
 
