@@ -1,1 +1,1 @@
-requests, openpyxl, ccxt
+websocket-client
