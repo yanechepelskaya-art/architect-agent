@@ -64,8 +64,8 @@ def migrate_db():
     except:
         pass
 
-def init_paper_db()
-migrate_db():
+def init_paper_db():
+    migrate_db()
     conn = sqlite3.connect("paper_trades.db")
     c = conn.cursor()
     c.execute("CREATE TABLE IF NOT EXISTS trades (id INTEGER PRIMARY KEY AUTOINCREMENT, timestamp TEXT, coin TEXT, action TEXT, price REAL, amount REAL, pnl REAL, reason TEXT)")
