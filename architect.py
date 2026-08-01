@@ -46,7 +46,26 @@ ws_vol = None
 phase_start_time = datetime.now()
 phase_history = []
 
-def init_paper_db():
+def migrate_db():
+    try:
+        conn = sqlite3.connect("paper_trades.db")
+        c = conn.cursor()
+        c.execute("PRAGMA table_info(trades)")
+        cols = [col[1] for col in c.fetchall()]
+        if "reason" not in cols:
+            c.execute("ALTER TABLE trades ADD COLUMN reason TEXT")
+            journal_event("migrate", "Added reason column to trades")
+        if "stop_loss" not in cols:
+            c.execute("ALTER TABLE trades ADD COLUMN stop_loss REAL")
+        if "take_profit" not in cols:
+            c.execute("ALTER TABLE trades ADD COLUMN take_profit REAL")
+        conn.commit()
+        conn.close()
+    except:
+        pass
+
+def init_paper_db()
+migrate_db():
     conn = sqlite3.connect("paper_trades.db")
     c = conn.cursor()
     c.execute("CREATE TABLE IF NOT EXISTS trades (id INTEGER PRIMARY KEY AUTOINCREMENT, timestamp TEXT, coin TEXT, action TEXT, price REAL, amount REAL, pnl REAL, reason TEXT)")
@@ -1488,6 +1507,7 @@ def paper_trade_logic():
 keyboard = {"keyboard": [["👋 Привет", "📊 Статус"], ["😱 Страх", "💀 Ликв"], ["⛓ Ончейн", "📖 Стакан"], ["📰 Новости", "🧭 Компас"], ["⚓ Якорь", "📐 Чертёж"], ["🧠 Сенсор", "🔄 Разворот"], ["💡 Совет", "⚡ Энергия"], ["👁 Тень", "🌬 Дыхание"], ["💓 Пульс", "🗺 Уровни"], ["🪞 Зеркало", "🏮 Маяк"], ["🔮 Прогноз", "📝 Paper"], ["📈 Backtest", "📊 Экспорт"], ["📋 История", "🏆 Топ"], ["📊 Статистика", "📊 Дэшборд"], ["🔗 Ссылка"], ["🎯 Удар", "📝 Заметка"], ["📋 Заметки", "⚠️ Профиль"], ["🎭 Сентимент"]], "resize_keyboard": True}
 print("Архитектор: агент с полным набором Промптов запущен")
 init_paper_db()
+migrate_db()
 p_hello = get_price("BTC")
 hello_msg = f"👋 <b>ДОБРОЕ УТРО, АРХИТЕКТОР!</b>\n\n🏰 Все системы активны.\n📊 Фаза: {last_phase}\n"
 if p_hello: hello_msg += f"₿ BTC: ${p_hello:,.2f}\n"
