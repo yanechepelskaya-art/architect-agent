@@ -1651,6 +1651,7 @@ def process_updates():
             elif t in ["/cnn", "👁 CNN"]: send_tg(cnn_predict())
             elif t in ["/mega", "🏛 Мега-Ансамбль"]: send_tg(mega_ensemble_predict())
             elif t in ["/autoencoder", "🔍 Автоэнкодер"]: send_tg(autoencoder_detect())
+            elif t in ["/news_sentiment", "📰 Сентимент"]: send_tg(get_crypto_news_sentiment())
             elif t in ["/link", "🔗 Ссылка"]: send_tg("🔗 https://architect-dashboard-e6kr.onrender.com")
     except Exception as e:
         print(f"Update error: {e}")
@@ -3383,6 +3384,50 @@ def autoencoder_detect():
         return reply
     except Exception as e:
         return f"❌ AutoEncoder ошибка: {e}"
+
+
+def get_crypto_news_sentiment():
+    try:
+        import feedparser
+        feed = feedparser.parse("https://news.google.com/rss/search?q=bitcoin+crypto&hl=en")
+        if not feed.entries:
+            return "Нет новостей."
+        positive = ["surge", "bull", "rally", "moon", "adopt", "launch", "breakthrough", "profit", "gain", "soar"]
+        negative = ["crash", "ban", "hack", "crash", "dump", "fear", "regulation", "loss", "drop", "plunge"]
+        score = 0
+        headlines = []
+        for entry in feed.entries[:5]:
+            title = entry.title.lower()
+            headlines.append(title)
+            for w in positive:
+                if w in title: score += 1
+            for w in negative:
+                if w in title: score -= 1
+        if score >= 3:
+            sentiment = "🟢 Позитивный"
+            advice = "Новости поддерживают рост."
+        elif score <= -3:
+            sentiment = "🔴 Негативный"
+            advice = "Новости давят на рынок."
+        else:
+            sentiment = "⚪ Нейтральный"
+            advice = "Новости без явного сигнала."
+        
+        p = get_price("BTC")
+        reply = (
+            f"📰 <b>СЕНТИМЕНТ НОВОСТЕЙ</b>\n"
+            f"<code>══════════════════════</code>\n\n"
+            f"₿ BTC: ${p:,.2f}" + (f"\n\n" if p else "") +
+            f"🎭 <b>Тон:</b> {sentiment} ({score:+d})\n"
+            f"💡 {advice}\n\n"
+            f"<b>Заголовки:</b>\n"
+        )
+        for h in headlines:
+            reply += f"• {h[:80]}\n"
+        reply += f"\n<code>══════════════════════</code>\n<i>Источник: Google News</i>"
+        return reply
+    except Exception as e:
+        return f"❌ Ошибка новостей: {e}"
 
 def update_trailing_stop():
     for coin, d in ACTIVE_PORTFOLIO.items():
