@@ -1,10 +1,11 @@
 import requests
 import time
+import shutil
 import os
 import json
 import sqlite3
 import threading
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timedelta
 from openpyxl import Workbook
 from openpyxl.styles import Font, PatternFill
 import ccxt
@@ -1767,7 +1768,7 @@ def get_trade_frequency():
         count = row[0]
         first = row[1]
         if first:
-            from datetime import datetime
+            from datetime import datetime, timedelta
             days = (datetime.now() - datetime.strptime(first[:10], "%Y-%m-%d")).days or 1
             per_day = count / days
             return f"🔄 Сделок: {count} за {days} дней ({per_day:.1f}/день)"
@@ -2287,6 +2288,30 @@ def ml_predict_signal():
     except Exception as e:
         return f"\u274c ML \u043e\u0448\u0438\u0431\u043a\u0430: {e}"
 
+
+def backup_databases():
+    try:
+        import shutil
+        backup_dir = "backups"
+        if not os.path.exists(backup_dir):
+            os.makedirs(backup_dir)
+        today = datetime.now().strftime("%Y-%m-%d")
+        for db in ["paper_trades.db", "journal.db"]:
+            if os.path.exists(db):
+                backup_name = f"{backup_dir}/{db.replace('.db', '')}_{today}.db"
+                shutil.copy2(db, backup_name)
+        # Удаляем старые бэкапы (старше 7 дней)
+        cutoff = datetime.now() - timedelta(days=7)
+        for f in os.listdir(backup_dir):
+            path = os.path.join(backup_dir, f)
+            if os.path.isfile(path):
+                ftime = datetime.fromtimestamp(os.path.getmtime(path))
+                if ftime < cutoff:
+                    os.remove(path)
+        journal_event("backup", f"Databases backed up ({today})")
+    except Exception as e:
+        journal_event("backup_error", str(e))
+
 def update_trailing_stop():
     for coin, d in ACTIVE_PORTFOLIO.items():
         p = get_price(coin)
@@ -2395,7 +2420,7 @@ while True:
         else:
             paper_trade_logic()
         last_paper = now
-    if now - last_daily >= 86400: daily_channel_summary(); clean_old_logs(); last_daily = now
+    if now - last_daily >= 86400: daily_channel_summary(); clean_old_logs(); backup_databases(); last_daily = now
     if now - last_imperative >= 14400:  # 4 часа
         try:
             p, v = get_market_data_rest("BTC")
