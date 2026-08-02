@@ -1646,6 +1646,7 @@ def process_updates():
             elif t in ["/lstm", "🧠 LSTM"]: send_tg(lstm_predict())
             elif t in ["/weights", "⚖ Веса"]: send_tg(show_prompt_weights())
             elif t in ["/ensemble", "🏛 Ансамбль"]: send_tg(ensemble_predict())
+            elif t in ["/transformer", "🔮 Transformer"]: send_tg(transformer_predict())
             elif t in ["/link", "🔗 Ссылка"]: send_tg("🔗 https://architect-dashboard-e6kr.onrender.com")
     except Exception as e:
         print(f"Update error: {e}")
@@ -2853,6 +2854,112 @@ def ensemble_predict():
         return reply
     except Exception as e:
         return f"❌ Ансамбль ошибка: {e}"
+
+
+def train_transformer_model():
+    try:
+        import torch
+        import torch.nn as nn
+        import numpy as np
+        from sklearn.preprocessing import StandardScaler
+        
+        ohlcv = exchange.fetch_ohlcv("BTC/USDT", "1h", limit=500)
+        if len(ohlcv) < 100:
+            return None, None, None
+        
+        closes = np.array([c[4] for c in ohlcv])
+        volumes = np.array([c[5] for c in ohlcv])
+        
+        X, y = [], []
+        seq_len = 24
+        for i in range(seq_len, len(closes)-1):
+            features = np.column_stack([closes[i-seq_len:i], volumes[i-seq_len:i]])
+            X.append(features)
+            change = (closes[i+1] - closes[i]) / closes[i] * 100
+            y.append(0 if change > 0.5 else (1 if change < -0.5 else 2))
+        
+        X = np.array(X)
+        y = np.array(y)
+        
+        if len(set(y)) < 2:
+            return None, None, None
+        
+        X_flat = X.reshape(-1, 2)
+        scaler = StandardScaler()
+        X_flat = scaler.fit_transform(X_flat)
+        X = X_flat.reshape(X.shape[0], seq_len, 2)
+        
+        class TransformerModel(nn.Module):
+            def __init__(self):
+                super().__init__()
+                self.embed = nn.Linear(2, 64)
+                encoder_layer = nn.TransformerEncoderLayer(d_model=64, nhead=4, batch_first=True)
+                self.transformer = nn.TransformerEncoder(encoder_layer, num_layers=2)
+                self.fc = nn.Linear(64, 3)
+            
+            def forward(self, x):
+                x = self.embed(x)
+                x = self.transformer(x)
+                return self.fc(x[:, -1, :])
+        
+        model = TransformerModel()
+        X_tensor = torch.FloatTensor(X)
+        y_tensor = torch.LongTensor(y)
+        
+        optimizer = torch.optim.Adam(model.parameters(), lr=0.0005)
+        criterion = nn.CrossEntropyLoss()
+        
+        for epoch in range(30):
+            optimizer.zero_grad()
+            output = model(X_tensor)
+            loss = criterion(output, y_tensor)
+            loss.backward()
+            optimizer.step()
+        
+        return model, scaler, seq_len
+    except Exception as e:
+        return None, None, None
+
+def transformer_predict():
+    try:
+        import torch
+        import numpy as np
+        
+        model, scaler, seq_len = train_transformer_model()
+        if model is None:
+            return "⚠️ Transformer: недостаточно данных."
+        
+        ohlcv = exchange.fetch_ohlcv("BTC/USDT", "1h", limit=seq_len+1)
+        closes = np.array([c[4] for c in ohlcv])
+        volumes = np.array([c[5] for c in ohlcv])
+        
+        features = np.column_stack([closes[-seq_len:], volumes[-seq_len:]])
+        features = scaler.transform(features)
+        X = torch.FloatTensor(features).unsqueeze(0)
+        
+        model.eval()
+        with torch.no_grad():
+            output = model(X)
+            probs = torch.softmax(output, dim=1)[0]
+            pred = torch.argmax(output, dim=1).item()
+        
+        labels = {0: "🟢 BUY", 1: "🔴 SELL", 2: "⚪ HOLD"}
+        p = get_price("BTC")
+        
+        reply = (
+            f"🔮 <b>TRANSFORMER-НЕЙРОСЕТЬ</b>\n"
+            f"<code>══════════════════════</code>\n\n"
+            f"₿ BTC: ${p:,.2f}" + (f"\n\n" if p else "") +
+            f"🎯 <b>Прогноз:</b> {labels.get(pred, '—')}\n\n"
+            f"<b>Вероятности:</b>\n"
+            f"  🟢 BUY: {probs[0]*100:.0f}%\n"
+            f"  🔴 SELL: {probs[1]*100:.0f}%\n"
+            f"  ⚪ HOLD: {probs[2]*100:.0f}%\n\n"
+            f"<i>Модель: Transformer, 30 эпох, внимание ко всем свечам</i>"
+        )
+        return reply
+    except Exception as e:
+        return f"❌ Transformer ошибка: {e}"
 
 def update_trailing_stop():
     for coin, d in ACTIVE_PORTFOLIO.items():
