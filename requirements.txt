@@ -3,3 +3,4 @@ websocket-client
 ccxt
 openpyxl
 flask
+scikit-learn
