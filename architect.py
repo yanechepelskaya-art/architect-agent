@@ -1656,6 +1656,7 @@ def process_updates():
                 auto_retrain_all_models()
                 send_tg("🔄 <b>ПЕРЕОБУЧЕНИЕ</b>\n<code>══════════════════════</code>\n\n✅ Все нейросети переобучены на свежих данных.\n\n<code>══════════════════════</code>")
             elif t in ["/adaptivestop", "🎯 Адаптивный стоп"]: send_tg(show_adaptive_stop())
+            elif t in ["/fakeout", "🕵 Ложный пробой"]: send_tg(ml_fake_breakout_detector())
             elif t in ["/link", "🔗 Ссылка"]: send_tg("🔗 https://architect-dashboard-e6kr.onrender.com")
     except Exception as e:
         print(f"Update error: {e}")
@@ -3498,6 +3499,49 @@ def show_adaptive_stop():
         return reply
     except:
         return "❌ Ошибка."
+
+
+def ml_fake_breakout_detector():
+    try:
+        import numpy as np
+        from sklearn.ensemble import IsolationForest
+        
+        ohlcv = exchange.fetch_ohlcv("BTC/USDT", "5m", limit=100)
+        if len(ohlcv) < 50:
+            return "⚠️ Недостаточно данных."
+        
+        features = []
+        for i in range(1, len(ohlcv)):
+            ch = (ohlcv[i][4] - ohlcv[i-1][4]) / ohlcv[i-1][4] * 100
+            vol_ch = (ohlcv[i][5] - ohlcv[i-1][5]) / ohlcv[i-1][5] * 100 if ohlcv[i-1][5] else 0
+            spread = (ohlcv[i][2] - ohlcv[i][3]) / ohlcv[i][3] * 100
+            features.append([ch, vol_ch, spread])
+        
+        X = np.array(features)
+        model = IsolationForest(contamination=0.1, random_state=42)
+        preds = model.fit_predict(X)
+        
+        recent = preds[-5:]
+        anomalies = sum(1 for p in recent if p == -1)
+        
+        p = get_price("BTC")
+        reply = (
+            f"🕵 <b>ML-ДЕТЕКТОР ЛОЖНЫХ ПРОБОЕВ</b>\n"
+            f"<code>══════════════════════</code>\n\n"
+            f"₿ BTC: ${p:,.2f}" + (f"\n\n" if p else "") +
+            f"🔍 Анализ: 100 свечей (5m)\n"
+            f"⚠️ Аномалий за 25 мин: <b>{anomalies}/5</b>\n\n"
+        )
+        if anomalies >= 3:
+            reply += "🔴 <b>ЛОЖНЫЙ ПРОБОЙ!</b>\nНе входи. Цена вернётся в диапазон."
+        elif anomalies >= 1:
+            reply += "🟡 <b>Подозрительная активность.</b>\nЖди подтверждения."
+        else:
+            reply += "🟢 <b>Пробой настоящий.</b>\nМожно действовать по сигналу."
+        reply += f"\n\n<code>══════════════════════</code>\n<i>Isolation Forest детектит манипуляции.</i>"
+        return reply
+    except Exception as e:
+        return f"❌ Ошибка: {e}"
 
 def update_trailing_stop():
     for coin, d in ACTIVE_PORTFOLIO.items():
