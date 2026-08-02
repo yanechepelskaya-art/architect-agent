@@ -345,6 +345,12 @@ def daily_channel_summary():
 def process_updates():
     global last_update_id, last_phase
     try:
+        if last_update_id == 0:
+            # При первом запуске сбрасываем старые обновления
+            r = requests.get(f"https://api.telegram.org/bot{TOKEN}/getUpdates", params={"offset": -1, "timeout": 1}, timeout=5).json()
+            results = r.get("result", [])
+            if results:
+                last_update_id = results[-1]["update_id"]
         r = requests.get(f"https://api.telegram.org/bot{TOKEN}/getUpdates", params={"offset": last_update_id + 1, "timeout": 5}, timeout=10).json()
         for upd in r.get("result", []):
             last_update_id = upd["update_id"]; t = upd.get("message", {}).get("text", "")
