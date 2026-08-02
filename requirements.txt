@@ -4,3 +4,4 @@ ccxt
 openpyxl
 flask
 scikit-learn
+scikit-learn
