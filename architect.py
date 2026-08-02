@@ -1649,6 +1649,7 @@ def process_updates():
             elif t in ["/transformer", "🔮 Transformer"]: send_tg(transformer_predict())
             elif t in ["/karma", "🙏 Карма"]: send_tg(show_karma())
             elif t in ["/cnn", "👁 CNN"]: send_tg(cnn_predict())
+            elif t in ["/mega", "🏛 Мега-Ансамбль"]: send_tg(mega_ensemble_predict())
             elif t in ["/link", "🔗 Ссылка"]: send_tg("🔗 https://architect-dashboard-e6kr.onrender.com")
     except Exception as e:
         print(f"Update error: {e}")
@@ -3120,6 +3121,199 @@ def cnn_predict():
         return reply
     except Exception as e:
         return f"❌ CNN ошибка: {e}"
+
+
+def train_catboost_model():
+    try:
+        from catboost import CatBoostClassifier
+        import numpy as np
+        from sklearn.preprocessing import StandardScaler
+        
+        ohlcv = exchange.fetch_ohlcv("BTC/USDT", "1h", limit=500)
+        if len(ohlcv) < 100:
+            return None, None
+        
+        X, y = [], []
+        for i in range(24, len(ohlcv)-1):
+            features = [ohlcv[i-24+j][4] for j in range(24)] + [ohlcv[i][5]]
+            X.append(features)
+            change = (ohlcv[i+1][4] - ohlcv[i][4]) / ohlcv[i][4] * 100
+            y.append(0 if change > 0.5 else (1 if change < -0.5 else 2))
+        
+        X, y = np.array(X), np.array(y)
+        if len(set(y)) < 2:
+            return None, None
+        
+        scaler = StandardScaler()
+        X_scaled = scaler.fit_transform(X)
+        model = CatBoostClassifier(iterations=100, depth=6, learning_rate=0.1, verbose=0, random_seed=42)
+        model.fit(X_scaled, y)
+        return model, scaler
+    except:
+        return None, None
+
+def train_lightgbm_model():
+    try:
+        from lightgbm import LGBMClassifier
+        import numpy as np
+        from sklearn.preprocessing import StandardScaler
+        
+        ohlcv = exchange.fetch_ohlcv("BTC/USDT", "1h", limit=500)
+        if len(ohlcv) < 100:
+            return None, None
+        
+        X, y = [], []
+        for i in range(24, len(ohlcv)-1):
+            features = [ohlcv[i-24+j][4] for j in range(24)] + [ohlcv[i][5]]
+            X.append(features)
+            change = (ohlcv[i+1][4] - ohlcv[i][4]) / ohlcv[i][4] * 100
+            y.append(0 if change > 0.5 else (1 if change < -0.5 else 2))
+        
+        X, y = np.array(X), np.array(y)
+        if len(set(y)) < 2:
+            return None, None
+        
+        scaler = StandardScaler()
+        X_scaled = scaler.fit_transform(X)
+        model = LGBMClassifier(n_estimators=100, max_depth=6, learning_rate=0.1, verbose=-1, random_state=42)
+        model.fit(X_scaled, y)
+        return model, scaler
+    except:
+        return None, None
+
+def mega_ensemble_predict():
+    try:
+        import numpy as np
+        import torch
+        from sklearn.linear_model import LinearRegression
+        
+        ohlcv = exchange.fetch_ohlcv("BTC/USDT", "1h", limit=500)
+        if len(ohlcv) < 100:
+            return "⚠️ Мега-Ансамбль: недостаточно данных."
+        
+        votes = {"BUY": 0, "SELL": 0, "HOLD": 0}
+        details = []
+        
+        models = [
+            ("🌲 Random Forest", 1, lambda: train_ml_model()),
+            ("⚡ XGBoost", 1, lambda: train_xgboost_model()),
+            ("🐱 CatBoost", 1, lambda: train_catboost_model()),
+            ("💡 LightGBM", 1, lambda: train_lightgbm_model()),
+        ]
+        
+        for name, weight, train_fn in models:
+            try:
+                result = train_fn()
+                if result and result[0]:
+                    model, scaler = result
+                    features = [ohlcv[-25+j][4] for j in range(24)] + [ohlcv[-1][5]]
+                    X = scaler.transform([features])
+                    pred_idx = model.predict(X)[0]
+                    labels = {0: "BUY", 1: "SELL", 2: "HOLD"}
+                    pred = labels.get(pred_idx, "HOLD")
+                    votes[pred] += weight
+                    details.append(f"{name}: {pred}")
+            except:
+                pass
+        
+        # LSTM
+        try:
+            result = train_lstm_model()
+            if result[0]:
+                model_lstm, scaler_lstm, seq_len = result
+                closes = np.array([c[4] for c in ohlcv])
+                volumes = np.array([c[5] for c in ohlcv])
+                features = np.column_stack([closes[-seq_len:], volumes[-seq_len:]])
+                features = scaler_lstm.transform(features)
+                X = torch.FloatTensor(features).unsqueeze(0)
+                model_lstm.eval()
+                with torch.no_grad():
+                    pred_idx = torch.argmax(model_lstm(X), dim=1).item()
+                labels = {0: "SELL", 1: "BUY", 2: "HOLD"}
+                pred = labels.get(pred_idx, "HOLD")
+                votes[pred] += 2
+                details.append(f"🧠 LSTM: {pred} (x2)")
+        except:
+            pass
+        
+        # Transformer
+        try:
+            result = train_transformer_model()
+            if result[0]:
+                model_t, scaler_t, seq_len_t = result
+                closes = np.array([c[4] for c in ohlcv])
+                volumes = np.array([c[5] for c in ohlcv])
+                features = np.column_stack([closes[-seq_len_t:], volumes[-seq_len_t:]])
+                features = scaler_t.transform(features)
+                X = torch.FloatTensor(features).unsqueeze(0)
+                model_t.eval()
+                with torch.no_grad():
+                    pred_idx = torch.argmax(model_t(X), dim=1).item()
+                labels = {0: "BUY", 1: "SELL", 2: "HOLD"}
+                pred = labels.get(pred_idx, "HOLD")
+                votes[pred] += 2
+                details.append(f"🔮 Transformer: {pred} (x2)")
+        except:
+            pass
+        
+        # CNN
+        try:
+            result = train_cnn_model()
+            if result[0]:
+                model_c, scaler_c, seq_len_c = result
+                closes = np.array([c[4] for c in ohlcv])
+                volumes = np.array([c[5] for c in ohlcv])
+                features = np.column_stack([closes[-seq_len_c:], volumes[-seq_len_c:]])
+                features = scaler_c.transform(features)
+                X = torch.FloatTensor(features).unsqueeze(0).unsqueeze(0)
+                model_c.eval()
+                with torch.no_grad():
+                    pred_idx = torch.argmax(model_c(X), dim=1).item()
+                labels = {0: "BUY", 1: "SELL", 2: "HOLD"}
+                pred = labels.get(pred_idx, "HOLD")
+                votes[pred] += 1
+                details.append(f"👁 CNN: {pred}")
+        except:
+            pass
+        
+        # Linear
+        try:
+            closes = np.array([c[4] for c in ohlcv])
+            X_lr = np.arange(len(closes)).reshape(-1, 1)
+            lr = LinearRegression()
+            lr.fit(X_lr[-100:], closes[-100:])
+            pred_val = lr.predict([[len(closes)]])[0]
+            change = (pred_val - closes[-1]) / closes[-1] * 100
+            pred = "BUY" if change > 0.5 else ("SELL" if change < -0.5 else "HOLD")
+            votes[pred] += 1
+            details.append(f"📈 Linear: {pred} ({change:+.2f}%)")
+        except:
+            pass
+        
+        winner = max(votes, key=votes.get)
+        total = sum(votes.values())
+        confidence = votes[winner] / total * 100 if total > 0 else 0
+        
+        emoji = {"BUY": "🟢", "SELL": "🔴", "HOLD": "⚪"}
+        p = get_price("BTC")
+        
+        reply = (
+            f"🏛 <b>МЕГА-АНСАМБЛЬ (8 моделей)</b>\n"
+            f"<code>══════════════════════</code>\n\n"
+            f"₿ BTC: ${p:,.2f}" + (f"\n\n" if p else "") +
+            f"<b>Голосование ({total} голосов):</b>\n"
+        )
+        for d in details:
+            reply += f"  {d}\n"
+        reply += (
+            f"\n🎯 <b>РЕШЕНИЕ:</b> {emoji.get(winner, '')} {winner}\n"
+            f"📊 Уверенность: <b>{confidence:.0f}%</b>\n\n"
+            f"<code>══════════════════════</code>\n"
+            f"<i>8 нейросетей голосуют. Большинство побеждает.</i>"
+        )
+        return reply
+    except Exception as e:
+        return f"❌ Мега-Ансамбль ошибка: {e}"
 
 def update_trailing_stop():
     for coin, d in ACTIVE_PORTFOLIO.items():
