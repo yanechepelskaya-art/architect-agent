@@ -1075,6 +1075,7 @@ def process_updates():
                 reply = "📋 <b>ИСТОРИЯ</b>\n" + "\n".join([f"{'🟢' if r[6] and r[6]>=0 else '🔴'} {r[1]} {r[3]} ${r[4]:,.2f} PnL:{r[6]:+,.2f}" for r in rows]) if rows else "📋 Пусто"
                 send_tg(reply)
             elif t in ["/export", "📊 Экспорт"]: export_to_excel()
+            elif t in ["/csvexport", "📋 CSV Экспорт"]: export_to_csv()
             elif t in ["/predict", "🔮 Прогноз"]: predict()
             elif t in ["/backtest", "📈 Backtest"]: backtest()
             elif t in ["/strategybacktest", "📋 Бэктест"]: send_tg(run_backtest())
@@ -2386,6 +2387,32 @@ def calculate_position(symbol, risk_usd, entry=None, stop=None):
         }
     except Exception as e:
         return None
+
+
+def export_to_csv():
+    try:
+        import csv
+        conn = sqlite3.connect("paper_trades.db")
+        c = conn.cursor()
+        c.execute("SELECT * FROM trades ORDER BY id")
+        rows = c.fetchall()
+        conn.close()
+        if not rows:
+            send_tg("📋 Нет сделок для экспорта.")
+            return
+        filename = f"trades_full_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv"
+        with open(filename, "w", newline="", encoding="utf-8") as f:
+            writer = csv.writer(f)
+            writer.writerow(["ID", "Timestamp", "Coin", "Action", "Price", "Amount", "PnL", "Reason", "Stop Loss", "Take Profit"])
+            for row in rows:
+                writer.writerow(list(row) + ["", ""])
+        with open(filename, "rb") as f:
+            requests.post(f"https://api.telegram.org/bot{TOKEN}/sendDocument",
+                          data={"chat_id": CHAT_ID},
+                          files={"document": (filename, f, "text/csv")})
+        send_tg(f"📋 <b>CSV ЭКСПОРТ</b>\n<code>══════════════════════</code>\n\n✅ Файл: {filename}\n📊 Сделок: {len(rows)}\n\n<i>Открывается в Excel / Google Таблицах</i>")
+    except Exception as e:
+        send_tg(f"❌ Ошибка CSV: {e}")
 
 def update_trailing_stop():
     for coin, d in ACTIVE_PORTFOLIO.items():
