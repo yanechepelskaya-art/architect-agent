@@ -1655,6 +1655,7 @@ def process_updates():
             elif t in ["/retrain", "🔄 Переобучить"]:
                 auto_retrain_all_models()
                 send_tg("🔄 <b>ПЕРЕОБУЧЕНИЕ</b>\n<code>══════════════════════</code>\n\n✅ Все нейросети переобучены на свежих данных.\n\n<code>══════════════════════</code>")
+            elif t in ["/adaptivestop", "🎯 Адаптивный стоп"]: send_tg(show_adaptive_stop())
             elif t in ["/link", "🔗 Ссылка"]: send_tg("🔗 https://architect-dashboard-e6kr.onrender.com")
     except Exception as e:
         print(f"Update error: {e}")
@@ -3457,6 +3458,46 @@ def auto_retrain_all_models():
         journal_event("retrain", f"{trained}/{len(models)} models retrained")
     except:
         pass
+
+
+def get_adaptive_stop(symbol="BTC-USDT", multiplier=2.0):
+    try:
+        atr = get_atr(symbol)
+        p = get_price("BTC") if "BTC" in symbol else get_price(symbol.replace("-USDT", ""))
+        if not p or not atr:
+            return None, None
+        stop_long = p - atr * multiplier
+        stop_short = p + atr * multiplier
+        return stop_long, stop_short
+    except:
+        return None, None
+
+def show_adaptive_stop():
+    try:
+        p = get_price("BTC")
+        atr = get_atr()
+        stop_long, stop_short = get_adaptive_stop()
+        if not stop_long:
+            return "⚠️ Нет данных."
+        reply = (
+            f"🎯 <b>АДАПТИВНЫЙ СТОП-ЛОСС</b>\n"
+            f"<code>══════════════════════</code>\n\n"
+            f"₿ BTC: <b>${p:,.2f}</b>\n"
+            f"📊 ATR (5m): <b>${atr:,.2f}</b>\n\n"
+            f"🟢 <b>Лонг:</b>\n"
+            f"  Вход: ${p:,.2f}\n"
+            f"  Стоп: <b>${stop_long:,.2f}</b> (ATR x2)\n"
+            f"  Риск: <b>${p - stop_long:,.2f}</b>\n\n"
+            f"🔴 <b>Шорт:</b>\n"
+            f"  Вход: ${p:,.2f}\n"
+            f"  Стоп: <b>${stop_short:,.2f}</b> (ATR x2)\n"
+            f"  Риск: <b>${stop_short - p:,.2f}</b>\n\n"
+            f"<code>══════════════════════</code>\n"
+            f"<i>Стоп динамический. Обновляется каждые 5 минут.</i>"
+        )
+        return reply
+    except:
+        return "❌ Ошибка."
 
 def update_trailing_stop():
     for coin, d in ACTIVE_PORTFOLIO.items():
