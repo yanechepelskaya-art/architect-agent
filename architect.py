@@ -19,8 +19,12 @@ TOKEN = "8900618226:AAGPVlCFCNSMiDYrv3DkUbeWorQWrdYti0Q"
 CHAT_ID = "870512243"
 CHANNEL_ID = "-1003920623687"
 
-ACTIVE_WATCHLIST = ["BTC", "ETH", "SOL"]
+ACTIVE_ACTIVE_PORTFOLIO = {}
+PASSIVE_PORTFOLIO = {}
+WATCHLIST = ["BTC", "ETH", "SOL"]
 
+ACTIVE_PORTFOLIO = {}
+PASSIVE_PORTFOLIO = {}
 PORTFOLIO = {
     "BTC": {"entry": 61900, "stop": 59500, "target": 68000, "amount": 0.01},
     "ETH": {"entry": 1550, "stop": 1450, "target": 2000, "amount": 0.1},
@@ -31,11 +35,19 @@ PORTFOLIO = {
     "RENDER": {"entry": 1.42, "stop": 1.20, "target": 1.80, "amount": 50}
 }
 
-PASSIVE_WATCHLIST = ["BTC", "ETH", "SOL"]
-
-PORTFOLIO = {"WLD": {"entry": 0.60, "stop": 0.50, "target": 0.70, "amount": 100}}
+PASSIVE_ACTIVE_PORTFOLIO = {}
+PASSIVE_PORTFOLIO = {}
 WATCHLIST = ["BTC", "ETH", "SOL"]
 
+ACTIVE_PORTFOLIO = {}
+PASSIVE_PORTFOLIO = {}
+PORTFOLIO = {"WLD": {"entry": 0.60, "stop": 0.50, "target": 0.70, "amount": 100}}
+ACTIVE_PORTFOLIO = {}
+PASSIVE_PORTFOLIO = {}
+WATCHLIST = ["BTC", "ETH", "SOL"]
+
+ACTIVE_PORTFOLIO = {}
+PASSIVE_PORTFOLIO = {}
 PORTFOLIO = {**ACTIVE_PORTFOLIO, **PASSIVE_PORTFOLIO}
 
 BALANCE = 759.89
