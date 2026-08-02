@@ -1826,6 +1826,13 @@ while True:
                 phase_start_time = datetime.now()
                 phase_history.append((datetime.now().strftime("%d.%m.%Y %H:%M"), last_phase))
                 if len(phase_history) > 10: phase_history = phase_history[-10:]
+                # Уведомление в канал о развороте
+                try:
+                    p = get_price("BTC")
+                    arrow = "📈" if "Эманация" in last_phase else ("📉" if "Сжатие" in last_phase else "📊")
+                    send_tg(f"🔄 <b>РАЗВОРОТ РЫНКА</b>\n<code>══════════════════════</code>\n\n{arrow} <b>{last_phase}</b>\n₿ BTC: ${p:,.2f}" + (f"\n\n📋 <b>Кодекс:</b> {chr(10).join(['• Проверь стоп-лоссы','• Не паникуй','• Действуй по Чертёжу'])}" if "Сжатие" in last_phase else f"\n\n📋 <b>Кодекс:</b> {chr(10).join(['• Можно наращивать позиции','• Подтягивай стопы','• Следуй за трендом'])}"), to_channel=True)
+                except:
+                    pass
         if p: prev_price = p
         check_level_alerts()
         last_check = now
