@@ -1516,6 +1516,7 @@ def process_updates():
                     f"<code>══════════════════════</code>"
                 )
                 send_tg(reply)
+            elif t in ["/exportmetrics", "📊 Экспорт метрик"]: export_metrics()
             elif t in ["/link", "🔗 Ссылка"]: send_tg("🔗 https://architect-dashboard-e6kr.onrender.com")
     except Exception as e:
         print(f"Update error: {e}")
@@ -1751,6 +1752,53 @@ def get_heatmap():
         return result if result else "Нет данных."
     except:
         return "Ошибка расчёта."
+
+
+def export_metrics():
+    try:
+        p = get_price("BTC")
+        atr = get_atr()
+        fr = get_funding_rate()
+        oi_val, oi_ch = get_open_interest_change()
+        ls = get_long_short_ratio()
+        dom = get_btc_dominance_simple()
+        sharpe = get_sharpe_ratio()
+        dd = get_max_drawdown()
+        freq = get_trade_frequency()
+        corr = get_portfolio_correlation()
+        heat = get_heatmap()
+        wb = openpyxl.Workbook()
+        ws = wb.active
+        ws.title = "Метрики Архитектора"
+        data = [
+            ["Метрика", "Значение", "Источник"],
+            ["BTC", f"${p:,.2f}" if p else "Н/Д", "OKX"],
+            ["Фаза", last_phase, "Чертёж"],
+            ["ATR (5m)", f"${atr:,.2f}", "OKX"],
+            ["Funding Rate", f"{fr:+.4f}%", "OKX"],
+            ["Open Interest", f"{oi_val:,.0f} ({oi_ch:+.1f}%)", "OKX"],
+            ["Long/Short Ratio", f"{ls:.0f}% лонгов", "OKX"],
+            ["Доминация BTC", dom, "OKX"],
+            ["Шарп", sharpe, "Paper Trading"],
+            ["Макс. просадка", dd, "Paper Trading"],
+            ["Частота сделок", freq, "Paper Trading"],
+            ["Корреляция", corr.replace("\n", " | "), "OKX"],
+            ["Тепловая карта", heat.replace("\n", " | "), "OKX"],
+        ]
+        for row in data:
+            ws.append(row)
+        ws.column_dimensions['A'].width = 20
+        ws.column_dimensions['B'].width = 40
+        ws.column_dimensions['C'].width = 15
+        filename = f"metrics_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx"
+        wb.save(filename)
+        with open(filename, "rb") as f:
+            requests.post(f"https://api.telegram.org/bot{TOKEN}/sendDocument",
+                          data={"chat_id": CHAT_ID},
+                          files={"document": (filename, f, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")})
+        send_tg(f"📊 Метрики экспортированы в {filename}")
+    except Exception as e:
+        send_tg(f"❌ Ошибка экспорта: {e}")
 
 def update_trailing_stop():
     for coin, d in ACTIVE_PORTFOLIO.items():
