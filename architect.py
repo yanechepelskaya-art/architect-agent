@@ -360,7 +360,32 @@ def process_updates():
                 last_update_id = results[-1]["update_id"]
         r = requests.get(f"https://api.telegram.org/bot{TOKEN}/getUpdates", params={"offset": last_update_id + 1, "timeout": 5}, timeout=10).json()
         for upd in r.get("result", []):
-            last_update_id = upd["update_id"]; t = upd.get("message", {}).get("text", "")
+            last_update_id = upd["update_id"]
+            msg = upd.get("message", {})
+            t = msg.get("text", "")
+            # Голосовое сообщение
+            if "voice" in msg and not t:
+                try:
+                    file_id = msg["voice"]["file_id"]
+                    file_info = requests.get(f"https://api.telegram.org/bot{TOKEN}/getFile?file_id={file_id}").json()
+                    file_path = file_info["result"]["file_path"]
+                    voice_url = f"https://api.telegram.org/file/bot{TOKEN}/{file_path}"
+                    # Просто используем длительность как триггер (распознавание требует доп. API)
+                    duration = msg["voice"]["duration"]
+                    t = "/start"  # По умолчанию показываем Привет
+                except:
+                    t = ""
+            # Голосовые команды (по длительности)
+            if "voice" in upd.get("message", {}) and not upd["message"].get("text"):
+                dur = upd["message"]["voice"].get("duration", 0)
+                if dur <= 2:
+                    t = "/sensor"
+                elif dur <= 4:
+                    t = "/predict"
+                elif dur <= 6:
+                    t = "/pulse"
+                else:
+                    t = "/strike"
             if t in ["/status", "📊 Статус"]:
                 phase_icon = "📈" if "Эманация" in last_phase else ("📉" if "Сжатие" in last_phase else "📊")
                 reply = f"🏰 <b>ПОРТФЕЛЬ</b>\n{phase_icon} {last_phase}\n<code>──</code>\n"
