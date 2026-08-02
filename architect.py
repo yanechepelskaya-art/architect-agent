@@ -1644,6 +1644,7 @@ def process_updates():
                         send_tg(f"📋 {coin} не найден.")
             elif t in ["/social", "💬 Сентимент"]: send_tg(get_social_sentiment())
             elif t in ["/lstm", "🧠 LSTM"]: send_tg(lstm_predict())
+            elif t in ["/weights", "⚖ Веса"]: send_tg(show_prompt_weights())
             elif t in ["/link", "🔗 Ссылка"]: send_tg("🔗 https://architect-dashboard-e6kr.onrender.com")
     except Exception as e:
         print(f"Update error: {e}")
@@ -2663,6 +2664,66 @@ def lstm_predict():
     except Exception as e:
         return f"❌ LSTM ошибка: {e}"
 
+
+# Веса Промптов (обновляются автоматически)
+PROMPT_WEIGHTS = {
+    "sensor": 1.0,
+    "blueprint": 1.0,
+    "predict": 1.0,
+    "energy": 1.0,
+    "shadow": 1.0,
+    "breath": 1.0,
+    "pulse": 1.0,
+    "levels": 1.0,
+    "compass": 1.0,
+    "ml_signal": 1.5,
+    "lstm": 2.0,
+}
+
+def update_prompt_weights():
+    try:
+        conn = sqlite3.connect("paper_trades.db")
+        c = conn.cursor()
+        c.execute("SELECT reason, pnl FROM trades WHERE pnl IS NOT NULL AND reason IS NOT NULL ORDER BY id DESC LIMIT 50")
+        rows = c.fetchall()
+        conn.close()
+        if len(rows) < 5:
+            return
+        stats = {}
+        for reason, pnl in rows:
+            for prompt in PROMPT_WEIGHTS:
+                if prompt in reason.lower():
+                    if prompt not in stats:
+                        stats[prompt] = {"wins": 0, "total": 0, "pnl": 0}
+                    stats[prompt]["total"] += 1
+                    stats[prompt]["pnl"] += pnl
+                    if pnl > 0:
+                        stats[prompt]["wins"] += 1
+        for prompt, data in stats.items():
+            if data["total"] >= 3:
+                winrate = data["wins"] / data["total"] * 100
+                avg_pnl = data["pnl"] / data["total"]
+                # Новый вес = винрейт/50 + средний PnL/10
+                new_weight = winrate / 50 + avg_pnl / 10
+                new_weight = max(0.5, min(3.0, new_weight))
+                PROMPT_WEIGHTS[prompt] = round(new_weight, 2)
+        journal_event("weights", str(PROMPT_WEIGHTS))
+    except:
+        pass
+
+def show_prompt_weights():
+    try:
+        update_prompt_weights()
+        reply = f"⚖ <b>ВЕСА ПРОМПТОВ</b>\n<code>══════════════════════</code>\n\n"
+        sorted_weights = sorted(PROMPT_WEIGHTS.items(), key=lambda x: x[1], reverse=True)
+        for name, weight in sorted_weights:
+            stars = "⭐" * min(int(weight * 2), 5)
+            reply += f"{stars} {name}: <b>{weight:.2f}</b>\n"
+        reply += f"\n<code>══════════════════════</code>\n<i>Веса обновляются автоматически по истории сделок.</i>"
+        return reply
+    except:
+        return "❌ Ошибка."
+
 def update_trailing_stop():
     for coin, d in ACTIVE_PORTFOLIO.items():
         p = get_price(coin)
@@ -2772,7 +2833,7 @@ while True:
         else:
             paper_trade_logic()
         last_paper = now
-    if now - last_daily >= 86400: daily_channel_summary(); clean_old_logs(); backup_databases(); last_daily = now
+    if now - last_daily >= 86400: daily_channel_summary(); clean_old_logs(); backup_databases(); update_prompt_weights(); last_daily = now
     if now - last_imperative >= 14400:  # 4 часа
         try:
             p, v = get_market_data_rest("BTC")
