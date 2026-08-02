@@ -1554,6 +1554,7 @@ def process_updates():
             elif t in ["/mtf", "🕐 Мульти-ТФ"]: send_tg(get_mtf_signal())
             elif t in ["/losses", "🔍 Анализ ошибок"]: send_tg(analyze_losses())
             elif t in ["/optimize", "⚙ Оптимизация"]: send_tg(optimize_strategy())
+            elif t in ["/mlsignal", "🤖 ML-Сигнал"]: send_tg(ml_predict_signal())
             elif t in ["/link", "🔗 Ссылка"]: send_tg("🔗 https://architect-dashboard-e6kr.onrender.com")
     except Exception as e:
         print(f"Update error: {e}")
@@ -2210,6 +2211,56 @@ def optimize_strategy():
         )
     except Exception as e:
         return f"❌ Ошибка оптимизации: {e}"
+
+
+def train_ml_model():
+    try:
+        import numpy as np
+        from sklearn.ensemble import RandomForestClassifier
+        from sklearn.preprocessing import StandardScaler
+        ohlcv = exchange.fetch_ohlcv("BTC/USDT", "1h", limit=500)
+        if len(ohlcv) < 100:
+            return None, None
+        X, y = [], []
+        for i in range(24, len(ohlcv)-1):
+            features = [ohlcv[i-24+j][4] for j in range(24)] + [ohlcv[i][5]]
+            X.append(features)
+            change = (ohlcv[i+1][4] - ohlcv[i][4]) / ohlcv[i][4] * 100
+            y.append("BUY" if change > 0.5 else ("SELL" if change < -0.5 else "HOLD"))
+        if len(set(y)) < 2:
+            return None, None
+        X, y = np.array(X), np.array(y)
+        scaler = StandardScaler()
+        X_scaled = scaler.fit_transform(X)
+        model = RandomForestClassifier(n_estimators=100, max_depth=10, random_state=42)
+        model.fit(X_scaled, y)
+        return model, scaler
+    except Exception as e:
+        try: journal_event("ml_error", str(e))
+        except: pass
+        return None, None
+
+def ml_predict_signal():
+    try:
+        import numpy as np
+        model, scaler = train_ml_model()
+        if model is None:
+            return "\u26a0 ML: \u043d\u0435\u0434\u043e\u0441\u0442\u0430\u0442\u043e\u0447\u043d\u043e \u0434\u0430\u043d\u043d\u044b\u0445."
+        ohlcv = exchange.fetch_ohlcv("BTC/USDT", "1h", limit=25)
+        features = [c[4] for c in ohlcv[:-1]] + [ohlcv[-1][5]]
+        X_scaled = scaler.transform([features])
+        pred = model.predict(X_scaled)[0]
+        proba = model.predict_proba(X_scaled)[0]
+        conf = max(proba) * 100
+        emoji = {"BUY": "\U0001f7e2", "SELL": "\U0001f534", "HOLD": "\u26aa"}
+        p = get_price("BTC")
+        reply = f"\U0001f916 <b>ML-\u0421\u0418\u0413\u041d\u0410\u041b (Random Forest)</b>\n<code>\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550</code>\n\n\u20bf BTC: ${p:,.2f}\n\n\U0001f3af <b>\u041f\u0440\u043e\u0433\u043d\u043e\u0437:</b> {emoji.get(pred, '')} {pred} (\u0443\u0432\u0435\u0440\u0435\u043d\u043d\u043e\u0441\u0442\u044c: {conf:.0f}%)\n\n<b>\u0412\u0435\u0440\u043e\u044f\u0442\u043d\u043e\u0441\u0442\u0438:</b>\n"
+        for cls, prob in sorted(zip(model.classes_, proba), key=lambda x: x[1], reverse=True):
+            reply += f"  {emoji.get(cls, '')} {cls}: {prob*100:.0f}%\n"
+        reply += f"\n<i>\u041c\u043e\u0434\u0435\u043b\u044c: Random Forest, 500 \u0441\u0432\u0435\u0447\u0435\u0439</i>"
+        return reply
+    except Exception as e:
+        return f"\u274c ML \u043e\u0448\u0438\u0431\u043a\u0430: {e}"
 
 def update_trailing_stop():
     for coin, d in ACTIVE_PORTFOLIO.items():
