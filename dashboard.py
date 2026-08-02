@@ -160,7 +160,7 @@ def index():
         <span style='color:#c9a96e;font-size:14px'>📝 Paper Trading</span><br>
         <span style='font-size:16px'>💰 Баланс: <b>${paper_balance:,.2f}</b></span>
         <span style='margin-left:20px;font-size:16px;color:{paper_color};text-shadow: 0 0 6px {paper_color}'>PnL: <b>{paper_pnl:+,.2f}</b></span><br>
-        <span style='font-size:12px;color:#666'>Сделок: {paper_trades} | Винрейт: {paper_winrate:.1f}%</span>
+        <span style='font-size:1.5vw;color:#666'>Сделок: {paper_trades} | Винрейт: {paper_winrate:.1f}%</span>
     </div>
     """
 
@@ -172,7 +172,7 @@ def index():
         for s in signals:
             ts, coin, action, price, pnl, reason = s
             emoji = "🟢" if pnl and pnl >= 0 else "🔴"
-            signals_html += f"<div style='margin:5px 0;padding:5px;border-left:3px solid #c9a96e;background:#111;font-size:12px'>{emoji} <b>{ts}</b> | {coin} | {action} @ ${price:,.2f} | PnL: {pnl:+,.2f} | {reason}</div>"
+            signals_html += f"<div style='margin:5px 0;padding:5px;border-left:3px solid #c9a96e;background:#111;font-size:1.5vw'>{emoji} <b>{ts}</b> | {coin} | {action} @ ${price:,.2f} | PnL: {pnl:+,.2f} | {reason}</div>"
         signals_html += "</div>"
 
     # Сенсор
@@ -241,14 +241,14 @@ def index():
     now = datetime.now().strftime("%H:%M:%S")
     footer = f"""
     <div style='text-align:center;margin-top:20px;padding:10px;background:#1a1a1a;border-radius:8px;border:1px solid #333'>
-        <span style='color:#666;font-size:12px'>🕐 Последнее обновление: <b>{now}</b></span>
+        <span style='color:#666;font-size:1.5vw'>🕐 Последнее обновление: <b>{now}</b></span>
         <br><br>
         <a href='/' style='color:#c9a96e;text-decoration:none;margin:0 10px;text-shadow: 0 0 4px #c9a96e'>🔄 Обновить</a>
         <a href='https://t.me/YanaArchitectBot' target='_blank' style='color:#c9a96e;text-decoration:none;margin:0 10px;text-shadow: 0 0 4px #c9a96e'>🤖 Открыть бота</a>
     </div>
     """
 
-    return f"""<!DOCTYPE html><html><head><title>Архитектор: Командный Центр</title><meta http-equiv="refresh" content="30"><style>body{{background:#050505;color:#e0e0e0;font-family:monospace;padding:30px}}h1{{color:#c9a96e;text-align:center;text-shadow:0 0 10px #c9a96e,0 0 20px #c9a96e;font-size:30px;letter-spacing:2px}}table{{border-collapse:collapse;width:100%;margin-top:20px;border:1px solid #c9a96e}}th{{background:linear-gradient(180deg,#1a1a1a,#0a0a0a);color:#c9a96e;padding:14px;text-align:left;border:1px solid #333;text-shadow:0 0 4px #c9a96e}}td{{padding:12px;text-align:left;border:1px solid #333}}tr:hover{{background:#1a1a1a;box-shadow:0 0 8px #c9a96e}}a{{color:#c9a96e;text-decoration:none;transition:all 0.3s}}a:hover{{color:#fff;text-shadow:0 0 8px #c9a96e}}.card{{background:#0a0a0a;border:1px solid #c9a96e;border-radius:8px;padding:15px;margin:15px 0;box-shadow:0 0 8px rgba(201,169,110,0.2)}}
+    return f"""<!DOCTYPE html><html><head><meta name="viewport" content="width=device-width,initial-scale=1"><title>Архитектор: Командный Центр</title><meta http-equiv="refresh" content="30"><style>body{{background:#050505;color:#e0e0e0;font-family:monospace;padding:2vw}}h1{{color:#c9a96e;text-align:center;text-shadow:0 0 10px #c9a96e,0 0 20px #c9a96e;font-size:5vw;letter-spacing:2px}}table{{border-collapse:collapse;width:100%;margin-top:20px;border:1px solid #c9a96e}}th{{background:linear-gradient(180deg,#1a1a1a,#0a0a0a);color:#c9a96e;padding:14px;text-align:left;border:1px solid #333;text-shadow:0 0 4px #c9a96e}}td{{padding:12px;text-align:left;border:1px solid #333}}tr:hover{{background:#1a1a1a;box-shadow:0 0 8px #c9a96e}}a{{color:#c9a96e;text-decoration:none;transition:all 0.3s}}a:hover{{color:#fff;text-shadow:0 0 8px #c9a96e}}.card{{background:#0a0a0a;border:1px solid #c9a96e;border-radius:8px;padding:15px;margin:15px 0;box-shadow:0 0 8px rgba(201,169,110,0.2)}}
         @keyframes fadeInUp {{
             from {{ opacity: 0; transform: translateY(10px); }}
             to {{ opacity: 1; transform: translateY(0); }}
@@ -258,7 +258,7 @@ def index():
             50% {{ text-shadow: 0 0 12px #c9a96e, 0 0 24px #c9a96e; }}
             100% {{ text-shadow: 0 0 4px #c9a96e; }}
         }}
-</style></head><body><h1>🏰 Архитектор: Командный Центр</h1>{mood_box}{sensor_box}{phase_box}{target_html}{summary}{top_html}{paper_html}{signals_html}<table><tr><th>Монета</th><th>Цена</th><th>Вход</th><th>PnL</th><th>Стоп</th><th>Цель</th></tr>{rows}</table>{footer}</body></html>"""
+</style></head><body><h1>🏰 Архитектор: Командный Центр</h1>{mood_box}{sensor_box}{phase_box}{target_html}{summary}{top_html}{paper_html}{signals_html}<div class="card"><h2 style="color:#c9a96e">📈 График PnL</h2><span style="color:#888">Нет данных.</span></div><table><tr><th>Монета</th><th>Цена</th><th>Вход</th><th>PnL</th><th>Стоп</th><th>Цель</th></tr>{rows}</table>{footer}</body></html>"""
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=5000, debug=False)
