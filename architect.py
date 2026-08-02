@@ -1657,6 +1657,7 @@ def process_updates():
                 send_tg("🔄 <b>ПЕРЕОБУЧЕНИЕ</b>\n<code>══════════════════════</code>\n\n✅ Все нейросети переобучены на свежих данных.\n\n<code>══════════════════════</code>")
             elif t in ["/adaptivestop", "🎯 Адаптивный стоп"]: send_tg(show_adaptive_stop())
             elif t in ["/fakeout", "🕵 Ложный пробой"]: send_tg(ml_fake_breakout_detector())
+            elif t in ["/genetic", "🧬 Генетика"]: send_tg(genetic_optimize())
             elif t in ["/link", "🔗 Ссылка"]: send_tg("🔗 https://architect-dashboard-e6kr.onrender.com")
     except Exception as e:
         print(f"Update error: {e}")
@@ -3539,6 +3540,75 @@ def ml_fake_breakout_detector():
         else:
             reply += "🟢 <b>Пробой настоящий.</b>\nМожно действовать по сигналу."
         reply += f"\n\n<code>══════════════════════</code>\n<i>Isolation Forest детектит манипуляции.</i>"
+        return reply
+    except Exception as e:
+        return f"❌ Ошибка: {e}"
+
+
+def genetic_optimize():
+    try:
+        import random
+        ohlcv = exchange.fetch_ohlcv("BTC/USDT", "1h", limit=500)
+        if len(ohlcv) < 100:
+            return "⚠️ Недостаточно данных."
+        
+        def fitness(params):
+            entry_th, tp, sl = params
+            trades = []
+            pos = None
+            entry = 0
+            for i in range(1, len(ohlcv)):
+                close = ohlcv[i][4]
+                prev_close = ohlcv[i-1][4]
+                ch = (close - prev_close) / prev_close * 100
+                vol = ohlcv[i][5]
+                prev_vol = ohlcv[i-1][5]
+                if pos is None:
+                    if ch > entry_th and vol > prev_vol:
+                        pos = "LONG"
+                        entry = close
+                elif pos == "LONG":
+                    pnl = (close - entry) / entry * 100
+                    if pnl > tp or pnl < -sl:
+                        trades.append(pnl)
+                        pos = None
+            if len(trades) < 5:
+                return -999
+            wins = len([t for t in trades if t > 0])
+            wr = wins / len(trades) * 100
+            total = sum(trades)
+            return wr * 0.7 + total * 0.3
+        
+        population = []
+        for _ in range(20):
+            individual = [random.uniform(0.2, 1.5), random.uniform(1, 6), random.uniform(0.5, 3)]
+            population.append((fitness(individual), individual))
+        
+        for generation in range(10):
+            population.sort(key=lambda x: x[0], reverse=True)
+            survivors = population[:5]
+            new_pop = survivors[:]
+            while len(new_pop) < 20:
+                parent = random.choice(survivors)[1]
+                child = [p + random.uniform(-0.1, 0.1) for p in parent]
+                child = [max(0.1, min(3, c)) for c in child]
+                new_pop.append((fitness(child), child))
+            population = new_pop
+        
+        best = population[0]
+        params = best[1]
+        reply = (
+            f"🧬 <b>ГЕНЕТИЧЕСКИЙ АЛГОРИТМ</b>\n"
+            f"<code>══════════════════════</code>\n\n"
+            f"🔬 Поколений: 10 | Популяция: 20\n\n"
+            f"<b>🏆 ЛУЧШИЕ ПАРАМЕТРЫ:</b>\n"
+            f"• Вход: рост > <b>{params[0]:.2f}%</b>\n"
+            f"• Тейк-профит: <b>+{params[1]:.2f}%</b>\n"
+            f"• Стоп-лосс: <b>-{params[2]:.2f}%</b>\n\n"
+            f"📊 Фитнес: <b>{best[0]:.1f}</b>\n\n"
+            f"<code>══════════════════════</code>\n"
+            f"<i>Эволюция стратегии. Выживает сильнейший.</i>"
+        )
         return reply
     except Exception as e:
         return f"❌ Ошибка: {e}"
