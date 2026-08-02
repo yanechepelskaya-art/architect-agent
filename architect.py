@@ -1648,6 +1648,7 @@ def process_updates():
             elif t in ["/ensemble", "🏛 Ансамбль"]: send_tg(ensemble_predict())
             elif t in ["/transformer", "🔮 Transformer"]: send_tg(transformer_predict())
             elif t in ["/karma", "🙏 Карма"]: send_tg(show_karma())
+            elif t in ["/cnn", "👁 CNN"]: send_tg(cnn_predict())
             elif t in ["/link", "🔗 Ссылка"]: send_tg("🔗 https://architect-dashboard-e6kr.onrender.com")
     except Exception as e:
         print(f"Update error: {e}")
@@ -3011,6 +3012,114 @@ def show_karma():
         return reply
     except:
         return "❌ Ошибка."
+
+
+def train_cnn_model():
+    try:
+        import torch
+        import torch.nn as nn
+        import numpy as np
+        from sklearn.preprocessing import StandardScaler
+        
+        ohlcv = exchange.fetch_ohlcv("BTC/USDT", "1h", limit=500)
+        if len(ohlcv) < 100:
+            return None, None, None
+        
+        closes = np.array([c[4] for c in ohlcv])
+        volumes = np.array([c[5] for c in ohlcv])
+        
+        X, y = [], []
+        seq_len = 24
+        for i in range(seq_len, len(closes)-1):
+            features = np.column_stack([closes[i-seq_len:i], volumes[i-seq_len:i]])
+            X.append(features)
+            change = (closes[i+1] - closes[i]) / closes[i] * 100
+            y.append(0 if change > 0.5 else (1 if change < -0.5 else 2))
+        
+        X = np.array(X)
+        y = np.array(y)
+        
+        if len(set(y)) < 2:
+            return None, None, None
+        
+        X_flat = X.reshape(-1, 2)
+        scaler = StandardScaler()
+        X_flat = scaler.fit_transform(X_flat)
+        X = X_flat.reshape(X.shape[0], 1, seq_len, 2)  # [batch, channels, height, width]
+        
+        class CNNModel(nn.Module):
+            def __init__(self):
+                super().__init__()
+                self.conv1 = nn.Conv2d(1, 16, kernel_size=(3, 2), padding=(1, 0))
+                self.conv2 = nn.Conv2d(16, 32, kernel_size=(3, 1), padding=(1, 0))
+                self.pool = nn.AdaptiveAvgPool2d((4, 1))
+                self.fc = nn.Linear(32 * 4, 3)
+            
+            def forward(self, x):
+                x = torch.relu(self.conv1(x))
+                x = torch.relu(self.conv2(x))
+                x = self.pool(x)
+                x = x.view(x.size(0), -1)
+                return self.fc(x)
+        
+        model = CNNModel()
+        X_tensor = torch.FloatTensor(X)
+        y_tensor = torch.LongTensor(y)
+        
+        optimizer = torch.optim.Adam(model.parameters(), lr=0.001)
+        criterion = nn.CrossEntropyLoss()
+        
+        for epoch in range(30):
+            optimizer.zero_grad()
+            output = model(X_tensor)
+            loss = criterion(output, y_tensor)
+            loss.backward()
+            optimizer.step()
+        
+        return model, scaler, seq_len
+    except:
+        return None, None, None
+
+def cnn_predict():
+    try:
+        import torch
+        import numpy as np
+        
+        model, scaler, seq_len = train_cnn_model()
+        if model is None:
+            return "⚠️ CNN: недостаточно данных."
+        
+        ohlcv = exchange.fetch_ohlcv("BTC/USDT", "1h", limit=seq_len+1)
+        closes = np.array([c[4] for c in ohlcv])
+        volumes = np.array([c[5] for c in ohlcv])
+        
+        features = np.column_stack([closes[-seq_len:], volumes[-seq_len:]])
+        features = scaler.transform(features)
+        X = torch.FloatTensor(features).unsqueeze(0).unsqueeze(0)  # [1, 1, 24, 2]
+        
+        model.eval()
+        with torch.no_grad():
+            output = model(X)
+            probs = torch.softmax(output, dim=1)[0]
+            pred = torch.argmax(output, dim=1).item()
+        
+        labels = {0: "🟢 BUY", 1: "🔴 SELL", 2: "⚪ HOLD"}
+        p = get_price("BTC")
+        
+        reply = (
+            f"👁 <b>CNN-НЕЙРОСЕТЬ (Паттерны)</b>\n"
+            f"<code>══════════════════════</code>\n\n"
+            f"₿ BTC: ${p:,.2f}" + (f"\n\n" if p else "") +
+            f"🎯 <b>Прогноз:</b> {labels.get(pred, '—')}\n\n"
+            f"<b>Вероятности:</b>\n"
+            f"  🟢 BUY: {probs[0]*100:.0f}%\n"
+            f"  🔴 SELL: {probs[1]*100:.0f}%\n"
+            f"  ⚪ HOLD: {probs[2]*100:.0f}%\n\n"
+            f"<i>Модель: CNN, ищет графические паттерны</i>"
+        )
+        return reply
+    except Exception as e:
+        return f"❌ CNN ошибка: {e}"
 
 def update_trailing_stop():
     for coin, d in ACTIVE_PORTFOLIO.items():
