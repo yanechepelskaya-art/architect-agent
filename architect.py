@@ -1495,6 +1495,8 @@ def process_updates():
                 reply += ls_signal + "\n\n"
                 reply += f"<b>👑 ДОМИНАЦИЯ BTC</b>\n{get_btc_dominance_simple()}\n\n"
                 reply += f"<b>📈 КОЭФФИЦИЕНТ ШАРПА</b>\n{get_sharpe_ratio()}\n\n"
+                reply += f"<b>📉 МАКСИМАЛЬНАЯ ПРОСАДКА</b>\n{get_max_drawdown()}\n\n"
+                reply += f"<b>🔄 ЧАСТОТА СДЕЛОК</b>\n{get_trade_frequency()}\n\n"
                 reply += f"<b>🔗 КОРРЕЛЯЦИЯ ПОРТФЕЛЯ (24ч)</b>\n"
                 reply += f"{get_portfolio_correlation()}\n"
                 reply += f"<code>══════════════════════</code>\n"
@@ -1650,6 +1652,48 @@ def get_sharpe_ratio():
         else:
             emoji = "🔴"
         return f"{emoji} Шарп: {sharpe:.2f} (годовой)"
+    except:
+        return "Ошибка расчёта."
+
+
+def get_max_drawdown():
+    try:
+        conn = sqlite3.connect("paper_trades.db")
+        c = conn.cursor()
+        c.execute("SELECT pnl FROM trades WHERE pnl IS NOT NULL ORDER BY id")
+        rows = c.fetchall()
+        conn.close()
+        if len(rows) < 3:
+            return "Недостаточно сделок."
+        cumsum = 0
+        peak = 0
+        max_dd = 0
+        for r in rows:
+            cumsum += r[0]
+            peak = max(peak, cumsum)
+            dd = peak - cumsum
+            max_dd = max(max_dd, dd)
+        return f"📉 Макс. просадка: ${max_dd:,.2f} (от пика ${peak:,.2f})"
+    except:
+        return "Ошибка расчёта."
+
+def get_trade_frequency():
+    try:
+        conn = sqlite3.connect("paper_trades.db")
+        c = conn.cursor()
+        c.execute("SELECT COUNT(*), MIN(timestamp) FROM trades")
+        row = c.fetchone()
+        conn.close()
+        if not row or row[0] == 0:
+            return "Сделок нет."
+        count = row[0]
+        first = row[1]
+        if first:
+            from datetime import datetime
+            days = (datetime.now() - datetime.strptime(first[:10], "%Y-%m-%d")).days or 1
+            per_day = count / days
+            return f"🔄 Сделок: {count} за {days} дней ({per_day:.1f}/день)"
+        return f"🔄 Всего сделок: {count}"
     except:
         return "Ошибка расчёта."
 
