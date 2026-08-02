@@ -1494,6 +1494,7 @@ def process_updates():
                     ls_signal = f"⚪ Лонгов: {ls:.0f}% — баланс. Без сигнала."
                 reply += ls_signal + "\n\n"
                 reply += f"<b>👑 ДОМИНАЦИЯ BTC</b>\n{get_btc_dominance_simple()}\n\n"
+                reply += f"<b>📈 КОЭФФИЦИЕНТ ШАРПА</b>\n{get_sharpe_ratio()}\n\n"
                 reply += f"<b>🔗 КОРРЕЛЯЦИЯ ПОРТФЕЛЯ (24ч)</b>\n"
                 reply += f"{get_portfolio_correlation()}\n"
                 reply += f"<code>══════════════════════</code>\n"
@@ -1624,6 +1625,33 @@ def get_btc_dominance_simple():
         return "Нет данных."
     except:
         return "Ошибка получения."
+
+
+def get_sharpe_ratio():
+    try:
+        conn = sqlite3.connect("paper_trades.db")
+        c = conn.cursor()
+        c.execute("SELECT pnl FROM trades WHERE pnl IS NOT NULL ORDER BY id")
+        rows = c.fetchall()
+        conn.close()
+        if len(rows) < 5:
+            return "Недостаточно сделок (нужно >5)."
+        pnls = [r[0] for r in rows]
+        avg = sum(pnls) / len(pnls)
+        variance = sum((x - avg) ** 2 for x in pnls) / len(pnls)
+        std = variance ** 0.5
+        if std == 0:
+            return "Шарп: 0 (нет волатильности)."
+        sharpe = (avg / std) * (252 ** 0.5)  # Годовой
+        if sharpe > 2:
+            emoji = "🟢"
+        elif sharpe > 1:
+            emoji = "💛"
+        else:
+            emoji = "🔴"
+        return f"{emoji} Шарп: {sharpe:.2f} (годовой)"
+    except:
+        return "Ошибка расчёта."
 
 def update_trailing_stop():
     for coin, d in ACTIVE_PORTFOLIO.items():
