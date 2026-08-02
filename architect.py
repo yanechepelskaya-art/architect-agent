@@ -1502,7 +1502,7 @@ def process_updates():
                 reply += f"<code>══════════════════════</code>\n"
                 reply += f"<i>Архитектор, метрики видят то, что скрыто от толпы.</i>"
                 send_tg(reply)
-            elif t in ["/link", "🔗 Ссылка"]: send_tg("🔗 http://192.168.1.195:5000")
+            elif t in ["/link", "🔗 Ссылка"]: send_tg("🔗 https://architect-dashboard-e6kr.onrender.com")
     except Exception as e:
         print(f"Update error: {e}")
 
