@@ -1605,6 +1605,7 @@ def process_updates():
                         send_tg("❌ Ошибка расчёта. Проверь тикер.")
                 else:
                     send_tg("🧮 <b>КАЛЬКУЛЯТОР</b>\n<code>══════════════════════</code>\n\nФормат: <b>/calc BTC 10</b>\nГде 10 — риск в долларах.")
+            elif t in ["/indices", "📊 Индексы"]: send_tg(compare_indices())
             elif t in ["/link", "🔗 Ссылка"]: send_tg("🔗 https://architect-dashboard-e6kr.onrender.com")
     except Exception as e:
         print(f"Update error: {e}")
@@ -2413,6 +2414,41 @@ def export_to_csv():
         send_tg(f"📋 <b>CSV ЭКСПОРТ</b>\n<code>══════════════════════</code>\n\n✅ Файл: {filename}\n📊 Сделок: {len(rows)}\n\n<i>Открывается в Excel / Google Таблицах</i>")
     except Exception as e:
         send_tg(f"❌ Ошибка CSV: {e}")
+
+
+def compare_indices():
+    try:
+        import yfinance as yf
+        result = []
+        for symbol, name in [("^GSPC", "S&P500"), ("GC=F", "Золото"), ("DX-Y.NYB", "DXY")]:
+            try:
+                ticker = yf.Ticker(symbol)
+                hist = ticker.history(period="1d")
+                if not hist.empty:
+                    ch = (hist["Close"].iloc[-1] - hist["Open"].iloc[0]) / hist["Open"].iloc[0] * 100
+                    result.append(f"{'🟢' if ch>=0 else '🔴'} {name}: {ch:+.2f}%")
+                else:
+                    result.append(f"⚪ {name}: нет данных")
+            except:
+                result.append(f"⚪ {name}: ошибка")
+        btc = get_price("BTC")
+        btc_ch = 0
+        if btc and prev_price:
+            btc_ch = (btc - prev_price) / prev_price * 100
+        reply = (
+            f"📊 <b>СРАВНЕНИЕ С ИНДЕКСАМИ</b>\n"
+            f"<code>══════════════════════</code>\n\n"
+            f"₿ BTC: ${btc:,.2f} ({btc_ch:+.2f}%)\n\n"
+        )
+        for r in result:
+            reply += f"{r}\n"
+        reply += (
+            f"\n<code>══════════════════════</code>\n"
+            f"<i>Корреляция BTC с индексами</i>"
+        )
+        return reply
+    except Exception as e:
+        return f"❌ Ошибка: {e}\n\nУстанови yfinance: pip3 install yfinance"
 
 def update_trailing_stop():
     for coin, d in ACTIVE_PORTFOLIO.items():
