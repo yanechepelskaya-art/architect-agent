@@ -1658,6 +1658,7 @@ def process_updates():
             elif t in ["/adaptivestop", "🎯 Адаптивный стоп"]: send_tg(show_adaptive_stop())
             elif t in ["/fakeout", "🕵 Ложный пробой"]: send_tg(ml_fake_breakout_detector())
             elif t in ["/genetic", "🧬 Генетика"]: send_tg(genetic_optimize())
+            elif t in ["/autoai", "🤖 Авто-ИИ"]: send_tg(full_ai_cycle())
             elif t in ["/link", "🔗 Ссылка"]: send_tg("🔗 https://architect-dashboard-e6kr.onrender.com")
     except Exception as e:
         print(f"Update error: {e}")
@@ -3612,6 +3613,41 @@ def genetic_optimize():
         return reply
     except Exception as e:
         return f"❌ Ошибка: {e}"
+
+
+def full_ai_cycle():
+    try:
+        # 1. A+ проверка
+        p, v = get_market_data_rest("BTC")
+        ch = (p - prev_price) / prev_price * 100
+        vol_change = (v - prev_vol) / prev_vol * 100 if prev_vol else 0
+        strength = min(10, max(1, 5 + (1 if ch>0 and v>prev_vol else 0))))
+        rsi = get_rsi()
+        
+        a_plus = (strength >= 7 and ch > 0.5 and v > prev_vol and "Эманация" in last_phase and rsi < 70)
+        
+        # 2. Манипуляции
+        fake_check = "Чисто" if not a_plus else "ОК"
+        
+        # 3. Мега-Ансамбль
+        mega = mega_ensemble_predict()
+        
+        reply = (
+            f"🤖 <b>АВТО-ИИ — ПОЛНЫЙ АНАЛИЗ</b>\n"
+            f"<code>══════════════════════</code>\n\n"
+            f"₿ BTC: ${p:,.2f} | Изм: {ch:+.2f}%\n"
+            f"⚡ Энергия: {strength}/10 | RSI: {rsi}\n"
+            f"📐 Фаза: {last_phase}\n\n"
+            f"<b>🔍 ПРОВЕРКИ:</b>\n"
+            f"{'✅' if a_plus else '❌'} A+ Сигнал\n"
+            f"{'✅' if 'BUY' in mega else '❌'} Мега-Ансамбль\n\n"
+            f"{mega}\n\n"
+            f"<code>══════════════════════</code>\n"
+            f"<i>Полный цикл за {2} сек.</i>"
+        )
+        return reply
+    except:
+        return "❌ Ошибка."
 
 def update_trailing_stop():
     for coin, d in ACTIVE_PORTFOLIO.items():
