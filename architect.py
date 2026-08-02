@@ -86,7 +86,8 @@ def send_voice(text):
         run(["say", "-o", audio_path, "--data-format=alac", text], capture_output=True, timeout=10)
         with open(audio_path, 'rb') as af: requests.post(url, params={"chat_id": CHAT_ID}, files={"voice": af}, timeout=15)
         os.remove(tmp_path); os.remove(audio_path)
-    except: pass
+    except Exception as e:
+        print(f"Update error: {e}")
 
 def send_tg(text, reply_markup=None, to_channel=False):
     try:
@@ -95,7 +96,8 @@ def send_tg(text, reply_markup=None, to_channel=False):
         params = {"chat_id": target, "text": text, "parse_mode": "HTML"}
         if reply_markup and not to_channel: params["reply_markup"] = json.dumps(reply_markup)
         requests.get(url, params=params, timeout=10)
-    except: pass
+    except Exception as e:
+        print(f"Update error: {e}")
 
 def get_market_data_rest(symbol="BTC"):
     try:
@@ -112,7 +114,8 @@ def on_message(ws, message):
     try:
         data = json.loads(message)
         if "data" in data and len(data["data"]) > 0: ws_price = float(data["data"][0]["last"]); ws_vol = float(data["data"][0]["vol24h"])
-    except: pass
+    except Exception as e:
+        print(f"Update error: {e}")
 
 def on_error(ws, error): pass
 def on_close(ws, a, b): pass
@@ -230,7 +233,8 @@ def backtest():
                     position = None
         winrate = (wins / trades * 100) if trades > 0 else 0; profit = balance - 10000.0
         send_tg(f"📈 <b>BACKTEST</b>\n💰 Прибыль: <b>${profit:+,.2f}</b> ({profit/10000*100:+.2f}%)\n🎯 Винрейт: <b>{winrate:.1f}%</b>")
-    except: pass
+    except Exception as e:
+        print(f"Update error: {e}")
 
 def mystats():
     try:
@@ -241,7 +245,8 @@ def mystats():
         wins = len([p for p in pnls if p > 0]); winrate = wins / trades_count * 100 if trades_count > 0 else 0
         best = max(pnls); worst = min(pnls)
         send_tg(f"📊 <b>СТАТИСТИКА</b>\n📋 Сделок: <b>{trades_count}</b>\n✅ Прибыльных: <b>{wins}</b>\n🎯 Винрейт: <b>{winrate:.1f}%</b>\n💰 PnL: <b>${total_pnl:+,.2f}</b>\n🟢 Лучшая: <b>${best:+,.2f}</b>\n🔴 Худшая: <b>${worst:+,.2f}</b>")
-    except: pass
+    except Exception as e:
+        print(f"Update error: {e}")
 
 def top_coins():
     try:
@@ -251,7 +256,8 @@ def top_coins():
         reply = "🏆 <b>ТОП МОНЕТ</b>\n"
         for i, r in enumerate(rows, 1): reply += f"{'🥇' if i==1 else ('🥈' if i==2 else '🥉')} <b>{r[0]}</b>: ${r[1]:+,.2f}\n"
         send_tg(reply)
-    except: pass
+    except Exception as e:
+        print(f"Update error: {e}")
 
 def check_stop_proximity():
     global stop_warnings_sent
@@ -1494,7 +1500,8 @@ def process_updates():
                 reply += f"<i>Архитектор, метрики видят то, что скрыто от толпы.</i>"
                 send_tg(reply)
             elif t in ["/link", "🔗 Ссылка"]: send_tg("🔗 http://192.168.1.195:5000")
-    except: pass
+    except Exception as e:
+        print(f"Update error: {e}")
 
 
 def check_level_alerts():
