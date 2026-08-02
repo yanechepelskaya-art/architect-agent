@@ -1804,7 +1804,7 @@ p, v = get_market_data_rest("BTC")
 if p: prev_price = p; prev_vol = v
 
 last_check = time.time(); last_summary = time.time(); last_trailing = time.time()
-last_paper = time.time(); last_sharp_check = time.time(); last_daily = time.time()
+last_paper = time.time(); last_sharp_check = time.time(); last_daily = time.time(); last_imperative = time.time()
 
 while True:
     process_updates(); time.sleep(0.5)
@@ -1833,6 +1833,28 @@ while True:
     if now - last_trailing >= 600: update_trailing_stop(); last_trailing = now
     if now - last_paper >= 300: paper_trade_logic(); last_paper = now
     if now - last_daily >= 86400: daily_channel_summary(); last_daily = now
+    if now - last_imperative >= 14400:  # 4 часа
+        try:
+            p, v = get_market_data_rest("BTC")
+            if p and prev_price and prev_vol:
+                ch = (p - prev_price) / prev_price * 100
+                vol_change = (v - prev_vol) / prev_vol * 100 if prev_vol else 0
+                if ch > 0.5 and v > prev_vol:
+                    decision = "🟢 BUY"
+                    size = "2%"
+                    reason = "Рост на объёме. Эманация."
+                elif ch < -0.5 and v > prev_vol:
+                    decision = "🔴 SELL / HOLD"
+                    size = "0%"
+                    reason = "Падение на объёме. Сжатие."
+                else:
+                    decision = "⚪ HOLD"
+                    size = "1%"
+                    reason = "Боковик или слабый сигнал."
+                send_tg(f"⏰ <b>АВТО-ИМПЕРАТИВ</b>\n<code>══════════════════════</code>\n\n📐 Фаза: {last_phase}\n₿ BTC: ${p:,.2f}\n\n🎯 <b>{decision}</b>\n💰 Размер: {size}\n📋 {reason}\n\n<code>══════════════════════</code>\n<i>Авто-сигнал каждые 4 часа.</i>")
+        except:
+            pass
+        last_imperative = now
     if now - last_summary >= 3600:
         summary = f"📊 <b>СВОДКА</b>\nФаза: {last_phase}\n"
         for coin, d in PORTFOLIO.items():
