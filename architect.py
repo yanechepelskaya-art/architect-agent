@@ -2312,6 +2312,32 @@ def backup_databases():
     except Exception as e:
         journal_event("backup_error", str(e))
 
+
+def check_black_swan():
+    try:
+        ohlcv = exchange.fetch_ohlcv("BTC/USDT", "1h", limit=2)
+        if len(ohlcv) < 2:
+            return
+        close, prev = ohlcv[-1][4], ohlcv[-2][4]
+        change = (close - prev) / prev * 100
+        if change <= -5:
+            msg = (
+                f"🦢 <b>ЧЁРНЫЙ ЛЕБЕДЬ!</b>\n"
+                f"<code>══════════════════════</code>\n\n"
+                f"🔴 BTC упал на <b>{change:.1f}%</b> за час!\n"
+                f"₿ Цена: <b>${close:,.2f}</b>\n\n"
+                f"📋 <b>Кодекс:</b>\n"
+                f"• Проверь стоп-лоссы\n"
+                f"• Не паникуй\n"
+                f"• Не усредняй\n"
+                f"• Жди стабилизации\n\n"
+                f"<code>══════════════════════</code>"
+            )
+            send_tg(msg)
+            journal_event("black_swan", f"BTC dropped {change:.1f}% in 1h")
+    except:
+        pass
+
 def update_trailing_stop():
     for coin, d in ACTIVE_PORTFOLIO.items():
         p = get_price(coin)
@@ -2385,6 +2411,7 @@ while True:
     process_updates(); time.sleep(0.5)
     now = time.time()
     if now - last_check >= 300:
+        check_black_swan()
         for coin, d in ACTIVE_PORTFOLIO.items():
             p = get_price(coin)
             if p:
