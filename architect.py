@@ -1209,7 +1209,7 @@ def process_updates():
                 except:
                     send_tg("😱 <b>СТРАХ</b>\nНе удалось получить данные. Попробуй позже.")
             elif t in ["/keyboard", "⌨ Клавиатура"]:
-                kb = {"keyboard": [["👋 Привет", "📊 Статус"], ["😱 Страх", "💀 Ликв"], ["⛓ Ончейн", "📖 Стакан"], ["📰 Новости", "🧭 Компас"], ["⚓ Якорь", "📐 Чертёж"], ["🧠 Сенсор", "🔄 Разворот"], ["💡 Совет", "⚡ Энергия"], ["👁 Тень", "🌬 Дыхание"], ["💓 Пульс", "🗺 Уровни"], ["🪞 Зеркало", "🏮 Маяк"], ["🔮 Прогноз", "📝 Paper"], ["📈 Backtest", "📊 Экспорт"], ["📋 История", "🏆 Топ"], ["📊 Статистика", "📊 Дэшборд"], ["🔗 Ссылка"], ["🎯 Удар", "📝 Заметка"], ["📋 Заметки", "⚠️ Профиль"], ["🎭 Сентимент"]], "resize_keyboard": True}
+                kb = {"keyboard": [["👋 Привет", "📊 Статус"], ["😱 Страх", "💀 Ликв"], ["⛓ Ончейн", "📖 Стакан"], ["📰 Новости", "🧭 Компас"], ["⚓ Якорь", "📐 Чертёж"], ["🧠 Сенсор", "🔄 Разворот"], ["💡 Совет", "⚡ Энергия"], ["👁 Тень", "🌬 Дыхание"], ["💓 Пульс", "🗺 Уровни"], ["🪞 Зеркало", "🏮 Маяк"], ["🔮 Прогноз", "📝 Paper"], ["📈 Backtest", "📊 Экспорт"], ["📋 История", "🏆 Топ"], ["📊 Статистика", "📊 Дэшборд"], ["🔗 Ссылка"], ["🎯 Удар", "📝 Заметка"], ["📊 Метрики"], ["📋 Заметки", "⚠️ Профиль"], ["🎭 Сентимент"]], "resize_keyboard": True}
                 send_tg("⌨ Клавиатура обновлена", reply_markup=json.dumps(kb))
             elif t in ["/start", "👋 Привет"]:
                 p = get_price("BTC")
@@ -1232,7 +1232,7 @@ def process_updates():
                     f"<code>══════════════════════</code>\n"
                     f"<i>Архитектор, Империя ждёт. Начнём.</i> 🏰"
                 )
-                kb = {"keyboard": [["👋 Привет", "📊 Статус"], ["😱 Страх", "💀 Ликв"], ["⛓ Ончейн", "📖 Стакан"], ["📰 Новости", "🧭 Компас"], ["⚓ Якорь", "📐 Чертёж"], ["🧠 Сенсор", "🔄 Разворот"], ["💡 Совет", "⚡ Энергия"], ["👁 Тень", "🌬 Дыхание"], ["💓 Пульс", "🗺 Уровни"], ["🪞 Зеркало", "🏮 Маяк"], ["🔮 Прогноз", "📝 Paper"], ["📈 Backtest", "📊 Экспорт"], ["📋 История", "🏆 Топ"], ["📊 Статистика", "📊 Дэшборд"], ["🔗 Ссылка"], ["🎯 Удар", "📝 Заметка"], ["📋 Заметки", "⚠️ Профиль"], ["🎭 Сентимент"]], "resize_keyboard": True}
+                kb = {"keyboard": [["👋 Привет", "📊 Статус"], ["😱 Страх", "💀 Ликв"], ["⛓ Ончейн", "📖 Стакан"], ["📰 Новости", "🧭 Компас"], ["⚓ Якорь", "📐 Чертёж"], ["🧠 Сенсор", "🔄 Разворот"], ["💡 Совет", "⚡ Энергия"], ["👁 Тень", "🌬 Дыхание"], ["💓 Пульс", "🗺 Уровни"], ["🪞 Зеркало", "🏮 Маяк"], ["🔮 Прогноз", "📝 Paper"], ["📈 Backtest", "📊 Экспорт"], ["📋 История", "🏆 Топ"], ["📊 Статистика", "📊 Дэшборд"], ["🔗 Ссылка"], ["🎯 Удар", "📝 Заметка"], ["📊 Метрики"], ["📋 Заметки", "⚠️ Профиль"], ["🎭 Сентимент"]], "resize_keyboard": True}
                 send_tg(reply, reply_markup=json.dumps(kb))
             elif t in ["/strike", "🎯 Удар"]:
                 p, v = get_market_data_rest("BTC")
@@ -1436,6 +1436,57 @@ def process_updates():
                     f"<i>Архитектор, будь против толпы. Страх — покупай. Жадность — продавай.</i>"
                 )
                 send_tg(reply)
+            elif t in ["/metrics", "📊 Метрики"]:
+                p = get_price("BTC")
+                if not p:
+                    send_tg("📊 <b>МЕТРИКИ</b>\n<code>══════════════════════</code>\n\nНет данных.")
+                    return
+                atr = get_atr()
+                fr = get_funding_rate()
+                oi_val, oi_ch = get_open_interest_change()
+                if fr > 0.05:
+                    fr_signal = "🔴 Толпа в лонгах — риск сжатия"
+                elif fr < -0.05:
+                    fr_signal = "🟢 Толпа в шортах — возможен рост"
+                else:
+                    fr_signal = "⚪ Нейтрально"
+                if oi_ch > 5:
+                    oi_signal = "🟢 OI растёт — тренд усиливается"
+                elif oi_ch < -5:
+                    oi_signal = "🔴 OI падает — возможен разворот"
+                else:
+                    oi_signal = "⚪ OI стабилен"
+                reply = (
+                    f"📊 <b>МЕТРИКИ АРХИТЕКТОРА</b>\n"
+                    f"<code>══════════════════════</code>\n\n"
+                    f"₿ <b>BTC:</b> ${p:,.2f}\n"
+                    f"📐 <b>Фаза:</b> {last_phase}\n\n"
+                    f"<b>📈 ВОЛАТИЛЬНОСТЬ (ATR)</b>\n"
+                    f"ATR (5m): <b>${atr:,.2f}</b>\n"
+                    f"Движение > ${atr*2:,.2f} = аномалия\n\n"
+                    f"<b>💰 СТАВКА ФИНАНСИРОВАНИЯ</b>\n"
+                    f"Funding Rate: <b>{fr:+.4f}%</b>\n"
+                    f"{fr_signal}\n\n"
+                    f"<b>📊 ОТКРЫТЫЙ ИНТЕРЕС (OI)</b>\n"
+                    f"OI: <b>{oi_val:,.0f}</b>\n"
+                    f"Изменение: <b>{oi_ch:+.1f}%</b>\n"
+                    f"{oi_signal}\n\n"
+                    f"<b>🐻 LONG/SHORT RATIO</b>\n"
+                )
+                ls = get_long_short_ratio()
+                if ls > 65:
+                    ls_signal = f"🔴 Лонгов: {ls:.0f}% — толпа в лонгах. Готовься к сжатию."
+                elif ls < 35:
+                    ls_signal = f"🟢 Лонгов: {ls:.0f}% — толпа в шортах. Возможен рост."
+                else:
+                    ls_signal = f"⚪ Лонгов: {ls:.0f}% — баланс. Без сигнала."
+                reply += ls_signal + "\n\n"
+                reply += f"<b>👑 ДОМИНАЦИЯ BTC</b>\n{get_btc_dominance_simple()}\n\n"
+                reply += f"<b>🔗 КОРРЕЛЯЦИЯ ПОРТФЕЛЯ (24ч)</b>\n"
+                reply += f"{get_portfolio_correlation()}\n"
+                reply += f"<code>══════════════════════</code>\n"
+                reply += f"<i>Архитектор, метрики видят то, что скрыто от толпы.</i>"
+                send_tg(reply)
             elif t in ["/link", "🔗 Ссылка"]: send_tg("🔗 http://192.168.1.195:5000")
     except: pass
 
@@ -1453,6 +1504,113 @@ def check_level_alerts():
             send_tg(f"⚠️ BTC приближается к поддержке ${support:,.2f}. Тек: ${p:,.2f}. Проверь стоп-лоссы.")
     except:
         pass
+
+
+def get_atr(symbol="BTC-USDT", periods=14):
+    try:
+        ohlcv = exchange.fetch_ohlcv(symbol, "5m", limit=periods+1)
+        tr_sum = 0
+        for i in range(1, len(ohlcv)):
+            high, low, close_prev = ohlcv[i][2], ohlcv[i][3], ohlcv[i-1][4]
+            tr = max(high-low, abs(high-close_prev), abs(low-close_prev))
+            tr_sum += tr
+        return tr_sum / periods if periods > 0 else 0
+    except:
+        return 0
+
+def get_funding_rate(symbol="BTC-USDT-SWAP"):
+    try:
+        funding = exchange.fetch_funding_rate(symbol)
+        return funding["fundingRate"] * 100  # в процентах
+    except:
+        return 0
+
+def get_open_interest_change(symbol="BTC-USDT-SWAP"):
+    try:
+        oi = exchange.fetch_open_interest(symbol)
+        oi_value = oi["openInterestAmount"]
+        conn = sqlite3.connect("journal.db")
+        c = conn.cursor()
+        c.execute("SELECT oi_value FROM open_interest WHERE symbol=? ORDER BY id DESC LIMIT 1", (symbol,))
+        row = c.fetchone()
+        if row and row[0] > 0:
+            change = (oi_value - row[0]) / row[0] * 100
+        else:
+            change = 0
+        c.execute("INSERT INTO open_interest (symbol, oi_value) VALUES (?, ?)", (symbol, oi_value))
+        conn.commit()
+        conn.close()
+        return oi_value, change
+    except:
+        return 0, 0
+
+
+
+def get_portfolio_correlation():
+    try:
+        coins = list(PORTFOLIO.keys())
+        if len(coins) < 2:
+            return "Недостаточно монет для анализа."
+        prices = {}
+        for coin in coins:
+            ohlcv = exchange.fetch_ohlcv(f"{coin}/USDT", "1h", limit=24)
+            prices[coin] = [c[4] for c in ohlcv]  # close prices
+        result = ""
+        for i in range(len(coins)):
+            for j in range(i+1, len(coins)):
+                p1 = prices[coins[i]]
+                p2 = prices[coins[j]]
+                n = min(len(p1), len(p2))
+                if n < 2: continue
+                # Простая корреляция Пирсона
+                mean1 = sum(p1[:n])/n
+                mean2 = sum(p2[:n])/n
+                num = sum((p1[k]-mean1)*(p2[k]-mean2) for k in range(n))
+                den1 = sum((p1[k]-mean1)**2 for k in range(n))**0.5
+                den2 = sum((p2[k]-mean2)**2 for k in range(n))**0.5
+                corr = num/(den1*den2) if den1*den2 else 0
+                emoji = "🔴" if corr > 0.7 else ("🟡" if corr > 0.4 else "🟢")
+                result += f"{emoji} {coins[i]} ↔ {coins[j]}: {corr:+.2f}\n"
+        return result if result else "Нет данных."
+    except:
+        return "Ошибка расчёта корреляции."
+
+
+def get_btc_dominance():
+    try:
+        ticker = exchange.fetch_ticker("BTC/USDT")
+        btc_price = ticker["last"]
+        total_cap = 0
+        for coin in ["BTC", "ETH", "SOL", "BNB", "XRP", "ADA", "DOGE", "AVAX"]:
+            try:
+                t = exchange.fetch_ticker(f"{coin}/USDT")
+                total_cap += t["last"] * (t["baseVolume"] / t["last"] if t["last"] else 0)
+            except:
+                pass
+        if total_cap > 0 and btc_price > 0:
+            # Упрощённо: доминация ~40-60%
+            return None  # Без точных данных рыночной капитализации — пропускаем
+        return None
+    except:
+        return None
+
+def get_btc_dominance_simple():
+    try:
+        # Альтернативный метод: сравниваем движение BTC vs ETH
+        btc = exchange.fetch_ticker("BTC/USDT")
+        eth = exchange.fetch_ticker("ETH/USDT")
+        if btc and eth:
+            btc_ch = btc["change"] if "change" in btc else 0
+            eth_ch = eth["change"] if "change" in eth else 0
+            if btc_ch > eth_ch:
+                return f"📈 BTC сильнее альтов (BTC.D растёт). Альты под давлением."
+            elif eth_ch > btc_ch:
+                return f"📉 ETH сильнее BTC (BTC.D падает). Альты растут."
+            else:
+                return f"⚪ BTC и альты движутся одинаково."
+        return "Нет данных."
+    except:
+        return "Ошибка получения."
 
 def update_trailing_stop():
     for coin, d in ACTIVE_PORTFOLIO.items():
@@ -1504,7 +1662,7 @@ def paper_trade_logic():
                 new_stop = p * 0.98
                 if new_stop > pos["stop"]: PAPER_POSITIONS[coin]["stop"] = round(new_stop, 2)
 
-keyboard = {"keyboard": [["👋 Привет", "📊 Статус"], ["😱 Страх", "💀 Ликв"], ["⛓ Ончейн", "📖 Стакан"], ["📰 Новости", "🧭 Компас"], ["⚓ Якорь", "📐 Чертёж"], ["🧠 Сенсор", "🔄 Разворот"], ["💡 Совет", "⚡ Энергия"], ["👁 Тень", "🌬 Дыхание"], ["💓 Пульс", "🗺 Уровни"], ["🪞 Зеркало", "🏮 Маяк"], ["🔮 Прогноз", "📝 Paper"], ["📈 Backtest", "📊 Экспорт"], ["📋 История", "🏆 Топ"], ["📊 Статистика", "📊 Дэшборд"], ["🔗 Ссылка"], ["🎯 Удар", "📝 Заметка"], ["📋 Заметки", "⚠️ Профиль"], ["🎭 Сентимент"]], "resize_keyboard": True}
+keyboard = {"keyboard": [["👋 Привет", "📊 Статус"], ["😱 Страх", "💀 Ликв"], ["⛓ Ончейн", "📖 Стакан"], ["📰 Новости", "🧭 Компас"], ["⚓ Якорь", "📐 Чертёж"], ["🧠 Сенсор", "🔄 Разворот"], ["💡 Совет", "⚡ Энергия"], ["👁 Тень", "🌬 Дыхание"], ["💓 Пульс", "🗺 Уровни"], ["🪞 Зеркало", "🏮 Маяк"], ["🔮 Прогноз", "📝 Paper"], ["📈 Backtest", "📊 Экспорт"], ["📋 История", "🏆 Топ"], ["📊 Статистика", "📊 Дэшборд"], ["🔗 Ссылка"], ["🎯 Удар", "📝 Заметка"], ["📊 Метрики"], ["📋 Заметки", "⚠️ Профиль"], ["🎭 Сентимент"]], "resize_keyboard": True}
 print("Архитектор: агент с полным набором Промптов запущен")
 init_paper_db()
 migrate_db()
