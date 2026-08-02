@@ -1647,6 +1647,7 @@ def process_updates():
             elif t in ["/weights", "⚖ Веса"]: send_tg(show_prompt_weights())
             elif t in ["/ensemble", "🏛 Ансамбль"]: send_tg(ensemble_predict())
             elif t in ["/transformer", "🔮 Transformer"]: send_tg(transformer_predict())
+            elif t in ["/karma", "🙏 Карма"]: send_tg(show_karma())
             elif t in ["/link", "🔗 Ссылка"]: send_tg("🔗 https://architect-dashboard-e6kr.onrender.com")
     except Exception as e:
         print(f"Update error: {e}")
@@ -2960,6 +2961,56 @@ def transformer_predict():
         return reply
     except Exception as e:
         return f"❌ Transformer ошибка: {e}"
+
+
+KARMA = 0
+
+def update_karma(pnl):
+    global KARMA
+    if pnl > 0:
+        KARMA += 1
+    else:
+        KARMA -= 1
+
+def get_karma_level():
+    if KARMA >= 10:
+        return "🟢 Просветлённый"
+    elif KARMA >= 5:
+        return "💛 Опытный"
+    elif KARMA >= 0:
+        return "⚪ Нейтральный"
+    elif KARMA >= -5:
+        return "🟠 Рисковый"
+    else:
+        return "🔴 Тёмный"
+
+def show_karma():
+    try:
+        conn = sqlite3.connect("paper_trades.db")
+        c = conn.cursor()
+        c.execute("SELECT pnl FROM trades WHERE pnl IS NOT NULL ORDER BY id")
+        rows = c.fetchall()
+        conn.close()
+        global KARMA
+        KARMA = sum(1 if r[0] > 0 else -1 for r in rows)
+        level = get_karma_level()
+        reply = (
+            f"🙏 <b>КАРМА АГЕНТА</b>\n"
+            f"<code>══════════════════════</code>\n\n"
+            f"🎭 Уровень: <b>{level}</b>\n"
+            f"🔢 Счёт: <b>{KARMA:+d}</b>\n"
+            f"📊 Сделок: <b>{len(rows)}</b>\n\n"
+        )
+        if KARMA >= 10:
+            reply += "💡 Агент в гармонии. Можно доверять сигналам."
+        elif KARMA >= 0:
+            reply += "💡 Агент учится. Следи за весами Промптов."
+        else:
+            reply += "💡 Агент в минусе. Проверь стратегию."
+        reply += f"\n\n<code>══════════════════════</code>\n<i>Каждая сделка меняет карму.</i>"
+        return reply
+    except:
+        return "❌ Ошибка."
 
 def update_trailing_stop():
     for coin, d in ACTIVE_PORTFOLIO.items():
