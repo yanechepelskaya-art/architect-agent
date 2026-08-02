@@ -1643,6 +1643,7 @@ def process_updates():
                     else:
                         send_tg(f"📋 {coin} не найден.")
             elif t in ["/social", "💬 Сентимент"]: send_tg(get_social_sentiment())
+            elif t in ["/lstm", "🧠 LSTM"]: send_tg(lstm_predict())
             elif t in ["/link", "🔗 Ссылка"]: send_tg("🔗 https://architect-dashboard-e6kr.onrender.com")
     except Exception as e:
         print(f"Update error: {e}")
@@ -2551,6 +2552,116 @@ def get_social_sentiment():
         return reply
     except Exception as e:
         return f"❌ Ошибка: {e}"
+
+
+def train_lstm_model():
+    try:
+        import torch
+        import torch.nn as nn
+        import numpy as np
+        from sklearn.preprocessing import StandardScaler
+        
+        ohlcv = exchange.fetch_ohlcv("BTC/USDT", "1h", limit=500)
+        if len(ohlcv) < 100:
+            return None, None
+        
+        closes = np.array([c[4] for c in ohlcv])
+        volumes = np.array([c[5] for c in ohlcv])
+        
+        # Создаём признаки
+        X, y = [], []
+        seq_len = 24
+        for i in range(seq_len, len(closes)-1):
+            features = np.column_stack([closes[i-seq_len:i], volumes[i-seq_len:i]])
+            X.append(features)
+            future = closes[i+1]
+            current = closes[i]
+            y.append(1 if future > current * 1.005 else (0 if future < current * 0.995 else 2))
+        
+        X = np.array(X)
+        y = np.array(y)
+        
+        if len(set(y)) < 2:
+            return None, None
+        
+        # Нормализация
+        X_flat = X.reshape(-1, 2)
+        scaler = StandardScaler()
+        X_flat = scaler.fit_transform(X_flat)
+        X = X_flat.reshape(X.shape[0], seq_len, 2)
+        
+        # LSTM модель
+        class LSTMModel(nn.Module):
+            def __init__(self):
+                super().__init__()
+                self.lstm = nn.LSTM(2, 32, 2, batch_first=True)
+                self.fc = nn.Linear(32, 3)
+            
+            def forward(self, x):
+                out, _ = self.lstm(x)
+                return self.fc(out[:, -1, :])
+        
+        model = LSTMModel()
+        X_tensor = torch.FloatTensor(X)
+        y_tensor = torch.LongTensor(y)
+        
+        # Обучение
+        optimizer = torch.optim.Adam(model.parameters(), lr=0.001)
+        criterion = nn.CrossEntropyLoss()
+        
+        for epoch in range(50):
+            optimizer.zero_grad()
+            output = model(X_tensor)
+            loss = criterion(output, y_tensor)
+            loss.backward()
+            optimizer.step()
+        
+        return model, scaler, seq_len
+    except Exception as e:
+        try: journal_event("lstm_error", str(e))
+        except: pass
+        return None, None, None
+
+def lstm_predict():
+    try:
+        import torch
+        import numpy as np
+        
+        model, scaler, seq_len = train_lstm_model()
+        if model is None:
+            return "⚠️ LSTM: недостаточно данных для обучения."
+        
+        ohlcv = exchange.fetch_ohlcv("BTC/USDT", "1h", limit=seq_len+1)
+        closes = np.array([c[4] for c in ohlcv])
+        volumes = np.array([c[5] for c in ohlcv])
+        
+        features = np.column_stack([closes[-seq_len:], volumes[-seq_len:]])
+        features = scaler.transform(features)
+        X = torch.FloatTensor(features).unsqueeze(0)
+        
+        model.eval()
+        with torch.no_grad():
+            output = model(X)
+            probs = torch.softmax(output, dim=1)[0]
+            pred = torch.argmax(output, dim=1).item()
+        
+        labels = {0: "🔴 SELL", 1: "🟢 BUY", 2: "⚪ HOLD"}
+        p = get_price("BTC")
+        
+        reply = (
+            f"🧠 <b>LSTM-НЕЙРОСЕТЬ</b>\n"
+            f"<code>══════════════════════</code>\n\n"
+            f"₿ BTC: ${p:,.2f}" + (f"\n\n" if p else "") +
+            f"🎯 <b>Прогноз:</b> {labels.get(pred, '—')}\n\n"
+            f"<b>Вероятности:</b>\n"
+            f"  🟢 BUY: {probs[1]*100:.0f}%\n"
+            f"  🔴 SELL: {probs[0]*100:.0f}%\n"
+            f"  ⚪ HOLD: {probs[2]*100:.0f}%\n\n"
+            f"<i>Модель: LSTM, 50 эпох, 500 свечей</i>"
+        )
+        return reply
+    except Exception as e:
+        return f"❌ LSTM ошибка: {e}"
 
 def update_trailing_stop():
     for coin, d in ACTIVE_PORTFOLIO.items():
