@@ -1,5 +1,6 @@
 import requests
 import time
+import os
 import json
 import sqlite3
 import threading
@@ -1800,6 +1801,21 @@ def export_metrics():
     except Exception as e:
         send_tg(f"❌ Ошибка экспорта: {e}")
 
+
+def clean_old_logs():
+    try:
+        log_file = "agent.log"
+        if os.path.exists(log_file):
+            size = os.path.getsize(log_file)
+            if size > 1024 * 1024:  # больше 1 МБ
+                with open(log_file, "r") as f:
+                    lines = f.readlines()
+                with open(log_file, "w") as f:
+                    f.writelines(lines[-100:])  # оставляем последние 100 строк
+                journal_event("clean", f"Log cleaned: {size} -> {os.path.getsize(log_file)} bytes")
+    except:
+        pass
+
 def update_trailing_stop():
     for coin, d in ACTIVE_PORTFOLIO.items():
         p = get_price(coin)
@@ -1901,7 +1917,7 @@ while True:
     if now - last_sharp_check >= 300: check_sharp_move(); last_sharp_check = now
     if now - last_trailing >= 600: update_trailing_stop(); last_trailing = now
     if now - last_paper >= 300: paper_trade_logic(); last_paper = now
-    if now - last_daily >= 86400: daily_channel_summary(); last_daily = now
+    if now - last_daily >= 86400: daily_channel_summary(); clean_old_logs(); last_daily = now
     if now - last_imperative >= 14400:  # 4 часа
         try:
             p, v = get_market_data_rest("BTC")
