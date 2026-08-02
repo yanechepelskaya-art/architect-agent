@@ -1650,6 +1650,7 @@ def process_updates():
             elif t in ["/karma", "🙏 Карма"]: send_tg(show_karma())
             elif t in ["/cnn", "👁 CNN"]: send_tg(cnn_predict())
             elif t in ["/mega", "🏛 Мега-Ансамбль"]: send_tg(mega_ensemble_predict())
+            elif t in ["/autoencoder", "🔍 Автоэнкодер"]: send_tg(autoencoder_detect())
             elif t in ["/link", "🔗 Ссылка"]: send_tg("🔗 https://architect-dashboard-e6kr.onrender.com")
     except Exception as e:
         print(f"Update error: {e}")
@@ -3314,6 +3315,74 @@ def mega_ensemble_predict():
         return reply
     except Exception as e:
         return f"❌ Мега-Ансамбль ошибка: {e}"
+
+
+def autoencoder_detect():
+    try:
+        import torch
+        import torch.nn as nn
+        import numpy as np
+        from sklearn.preprocessing import StandardScaler
+        
+        ohlcv = exchange.fetch_ohlcv("BTC/USDT", "5m", limit=200)
+        if len(ohlcv) < 100:
+            return "⚠️ AutoEncoder: недостаточно данных."
+        
+        closes = np.array([c[4] for c in ohlcv])
+        volumes = np.array([c[5] for c in ohlcv])
+        changes = np.diff(closes) / closes[:-1] * 100
+        
+        features = np.column_stack([changes[-100:], volumes[-100:]])
+        scaler = StandardScaler()
+        features = scaler.fit_transform(features)
+        
+        class AutoEncoder(nn.Module):
+            def __init__(self):
+                super().__init__()
+                self.encoder = nn.Sequential(nn.Linear(2, 8), nn.ReLU(), nn.Linear(8, 2))
+                self.decoder = nn.Sequential(nn.Linear(2, 8), nn.ReLU(), nn.Linear(8, 2))
+            def forward(self, x):
+                return self.decoder(self.encoder(x))
+        
+        model = AutoEncoder()
+        X = torch.FloatTensor(features)
+        optimizer = torch.optim.Adam(model.parameters(), lr=0.001)
+        criterion = nn.MSELoss()
+        
+        for epoch in range(50):
+            optimizer.zero_grad()
+            output = model(X)
+            loss = criterion(output, X)
+            loss.backward()
+            optimizer.step()
+        
+        model.eval()
+        with torch.no_grad():
+            reconstructed = model(X)
+            errors = torch.mean((X - reconstructed) ** 2, dim=1).numpy()
+        
+        threshold = np.mean(errors) + 2 * np.std(errors)
+        anomalies = errors[-10:] > threshold
+        anomaly_count = sum(anomalies)
+        
+        p = get_price("BTC")
+        reply = (
+            f"🔍 <b>AUTOENCODER — ДЕТЕКТОР АНОМАЛИЙ</b>\n"
+            f"<code>══════════════════════</code>\n\n"
+            f"₿ BTC: ${p:,.2f}" + (f"\n\n" if p else "") +
+            f"📊 Порог аномалии: <b>{threshold:.4f}</b>\n"
+            f"⚠️ Аномалий за 50 мин: <b>{anomaly_count}/10</b>\n\n"
+        )
+        if anomaly_count >= 3:
+            reply += "🔴 <b>ОБНАРУЖЕНА МАНИПУЛЯЦИЯ!</b>\nВозможен ложный пробой или памп.\n📋 Кодекс: не входи. Жди подтверждения."
+        elif anomaly_count >= 1:
+            reply += "🟡 <b>Повышенная волатильность.</b>\nБудь осторожна."
+        else:
+            reply += "🟢 <b>Рынок чист.</b>\nМанипуляций не обнаружено."
+        reply += f"\n\n<code>══════════════════════</code>\n<i>AutoEncoder видит то, что скрыто от глаз.</i>"
+        return reply
+    except Exception as e:
+        return f"❌ AutoEncoder ошибка: {e}"
 
 def update_trailing_stop():
     for coin, d in ACTIVE_PORTFOLIO.items():
