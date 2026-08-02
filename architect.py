@@ -1645,6 +1645,7 @@ def process_updates():
             elif t in ["/social", "💬 Сентимент"]: send_tg(get_social_sentiment())
             elif t in ["/lstm", "🧠 LSTM"]: send_tg(lstm_predict())
             elif t in ["/weights", "⚖ Веса"]: send_tg(show_prompt_weights())
+            elif t in ["/ensemble", "🏛 Ансамбль"]: send_tg(ensemble_predict())
             elif t in ["/link", "🔗 Ссылка"]: send_tg("🔗 https://architect-dashboard-e6kr.onrender.com")
     except Exception as e:
         print(f"Update error: {e}")
@@ -2723,6 +2724,135 @@ def show_prompt_weights():
         return reply
     except:
         return "❌ Ошибка."
+
+
+def train_xgboost_model():
+    try:
+        import xgboost as xgb
+        import numpy as np
+        from sklearn.preprocessing import StandardScaler
+        
+        ohlcv = exchange.fetch_ohlcv("BTC/USDT", "1h", limit=500)
+        if len(ohlcv) < 100:
+            return None, None
+        
+        X, y = [], []
+        for i in range(24, len(ohlcv)-1):
+            features = [ohlcv[i-24+j][4] for j in range(24)] + [ohlcv[i][5]]
+            X.append(features)
+            change = (ohlcv[i+1][4] - ohlcv[i][4]) / ohlcv[i][4] * 100
+            y.append(0 if change > 0.5 else (1 if change < -0.5 else 2))
+        
+        X, y = np.array(X), np.array(y)
+        if len(set(y)) < 2:
+            return None, None
+        
+        scaler = StandardScaler()
+        X_scaled = scaler.fit_transform(X)
+        model = xgb.XGBClassifier(n_estimators=100, max_depth=6, learning_rate=0.1, use_label_encoder=False, eval_metric='mlogloss')
+        model.fit(X_scaled, y)
+        return model, scaler
+    except:
+        return None, None
+
+def ensemble_predict():
+    try:
+        import numpy as np
+        from sklearn.linear_model import LinearRegression
+        from sklearn.ensemble import RandomForestClassifier
+        
+        ohlcv = exchange.fetch_ohlcv("BTC/USDT", "1h", limit=500)
+        if len(ohlcv) < 100:
+            return "⚠️ Ансамбль: недостаточно данных."
+        
+        votes = {"BUY": 0, "SELL": 0, "HOLD": 0}
+        details = []
+        
+        # 1. Random Forest
+        try:
+            model_rf, scaler_rf = train_ml_model()
+            if model_rf:
+                features = [ohlcv[-25+j][4] for j in range(24)] + [ohlcv[-1][5]]
+                X = scaler_rf.transform([features])
+                pred = model_rf.predict(X)[0]
+                votes[pred] += 1
+                details.append(f"🌲 Random Forest: {pred}")
+        except:
+            pass
+        
+        # 2. LSTM
+        try:
+            model_lstm, scaler_lstm, seq_len = train_lstm_model()
+            if model_lstm:
+                import torch
+                closes = np.array([c[4] for c in ohlcv])
+                volumes = np.array([c[5] for c in ohlcv])
+                features = np.column_stack([closes[-seq_len:], volumes[-seq_len:]])
+                features = scaler_lstm.transform(features)
+                X = torch.FloatTensor(features).unsqueeze(0)
+                model_lstm.eval()
+                with torch.no_grad():
+                    pred_idx = torch.argmax(model_lstm(X), dim=1).item()
+                labels = {0: "SELL", 1: "BUY", 2: "HOLD"}
+                pred = labels.get(pred_idx, "HOLD")
+                votes[pred] += 2  # LSTM имеет двойной вес
+                details.append(f"🧠 LSTM: {pred} (x2 вес)")
+        except:
+            pass
+        
+        # 3. XGBoost
+        try:
+            model_xgb, scaler_xgb = train_xgboost_model()
+            if model_xgb:
+                features = [ohlcv[-25+j][4] for j in range(24)] + [ohlcv[-1][5]]
+                X = scaler_xgb.transform([features])
+                pred_idx = model_xgb.predict(X)[0]
+                labels = {0: "BUY", 1: "SELL", 2: "HOLD"}
+                pred = labels.get(pred_idx, "HOLD")
+                votes[pred] += 1
+                details.append(f"⚡ XGBoost: {pred}")
+        except:
+            pass
+        
+        # 4. Linear Regression
+        try:
+            closes = np.array([c[4] for c in ohlcv])
+            X_lr = np.arange(len(closes)).reshape(-1, 1)
+            y_lr = closes
+            lr = LinearRegression()
+            lr.fit(X_lr[-100:], y_lr[-100:])
+            pred_val = lr.predict([[len(closes)]])[0]
+            change = (pred_val - closes[-1]) / closes[-1] * 100
+            pred = "BUY" if change > 0.5 else ("SELL" if change < -0.5 else "HOLD")
+            votes[pred] += 1
+            details.append(f"📈 Linear: {pred} ({change:+.2f}%)")
+        except:
+            pass
+        
+        winner = max(votes, key=votes.get)
+        total_votes = sum(votes.values())
+        confidence = votes[winner] / total_votes * 100 if total_votes > 0 else 0
+        
+        emoji = {"BUY": "🟢", "SELL": "🔴", "HOLD": "⚪"}
+        p = get_price("BTC")
+        
+        reply = (
+            f"🏛 <b>АНСАМБЛЬ НЕЙРОСЕТЕЙ</b>\n"
+            f"<code>══════════════════════</code>\n\n"
+            f"₿ BTC: ${p:,.2f}" + (f"\n\n" if p else "") +
+            f"<b>Голосование ({total_votes} голосов):</b>\n"
+        )
+        for d in details:
+            reply += f"  {d}\n"
+        reply += (
+            f"\n🎯 <b>РЕШЕНИЕ:</b> {emoji.get(winner, '')} {winner}\n"
+            f"📊 Уверенность: <b>{confidence:.0f}%</b>\n\n"
+            f"<code>══════════════════════</code>\n"
+            f"<i>4 модели голосуют. Большинство побеждает.</i>"
+        )
+        return reply
+    except Exception as e:
+        return f"❌ Ансамбль ошибка: {e}"
 
 def update_trailing_stop():
     for coin, d in ACTIVE_PORTFOLIO.items():
