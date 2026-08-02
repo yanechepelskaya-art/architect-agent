@@ -1652,6 +1652,9 @@ def process_updates():
             elif t in ["/mega", "🏛 Мега-Ансамбль"]: send_tg(mega_ensemble_predict())
             elif t in ["/autoencoder", "🔍 Автоэнкодер"]: send_tg(autoencoder_detect())
             elif t in ["/news_sentiment", "📰 Сентимент"]: send_tg(get_crypto_news_sentiment())
+            elif t in ["/retrain", "🔄 Переобучить"]:
+                auto_retrain_all_models()
+                send_tg("🔄 <b>ПЕРЕОБУЧЕНИЕ</b>\n<code>══════════════════════</code>\n\n✅ Все нейросети переобучены на свежих данных.\n\n<code>══════════════════════</code>")
             elif t in ["/link", "🔗 Ссылка"]: send_tg("🔗 https://architect-dashboard-e6kr.onrender.com")
     except Exception as e:
         print(f"Update error: {e}")
@@ -3429,6 +3432,32 @@ def get_crypto_news_sentiment():
     except Exception as e:
         return f"❌ Ошибка новостей: {e}"
 
+
+last_retrain = time.time()
+
+def auto_retrain_all_models():
+    try:
+        models = [
+            ("Random Forest", train_ml_model),
+            ("XGBoost", train_xgboost_model),
+            ("CatBoost", train_catboost_model),
+            ("LightGBM", train_lightgbm_model),
+            ("LSTM", train_lstm_model),
+            ("Transformer", train_transformer_model),
+            ("CNN", train_cnn_model),
+        ]
+        trained = 0
+        for name, train_fn in models:
+            try:
+                result = train_fn()
+                if result and result[0] is not None:
+                    trained += 1
+            except:
+                pass
+        journal_event("retrain", f"{trained}/{len(models)} models retrained")
+    except:
+        pass
+
 def update_trailing_stop():
     for coin, d in ACTIVE_PORTFOLIO.items():
         p = get_price(coin)
@@ -3539,6 +3568,9 @@ while True:
             paper_trade_logic()
         last_paper = now
     if now - last_daily >= 86400: daily_channel_summary(); clean_old_logs(); backup_databases(); update_prompt_weights(); last_daily = now
+    if now - last_retrain >= 14400:
+        auto_retrain_all_models()
+        last_retrain = time.time()
     if now - last_imperative >= 14400:  # 4 часа
         try:
             p, v = get_market_data_rest("BTC")
