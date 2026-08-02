@@ -1630,6 +1630,7 @@ def process_updates():
                         send_tg(f"📋 {coin} удалён из вотчлиста.")
                     else:
                         send_tg(f"📋 {coin} не найден.")
+            elif t in ["/social", "💬 Сентимент"]: send_tg(get_social_sentiment())
             elif t in ["/link", "🔗 Ссылка"]: send_tg("🔗 https://architect-dashboard-e6kr.onrender.com")
     except Exception as e:
         print(f"Update error: {e}")
@@ -2492,6 +2493,52 @@ def show_watchlist():
         return reply
     except:
         return "❌ Ошибка вотчлиста."
+
+
+def get_social_sentiment():
+    try:
+        # Используем Axiom API (бесплатный, без ключа)
+        url = "https://api.alternative.me/fng/?limit=1"
+        r = requests.get(url, timeout=10).json()
+        fg = r["data"][0]
+        fg_value = int(fg["value"])
+        fg_text = fg["value_classification"]
+        
+        # Дополнительно: тренды из Google (бесплатный прокси)
+        trends = ""
+        try:
+            # Пытаемся получить данные о трендах
+            r_trends = requests.get("https://api.coingecko.com/api/v3/search/trending", timeout=10).json()
+            coins = [c["item"]["name"] for c in r_trends.get("coins", [])[:5]]
+            if coins:
+                trends = "\n📈 <b>Тренды CoinGecko:</b>\n" + ", ".join(coins)
+        except:
+            pass
+        
+        if fg_value <= 25:
+            sentiment = "🔴 Страх — толпа паникует. Лучшее время для покупок."
+        elif fg_value <= 45:
+            sentiment = "🟡 Осторожность — рынок неуверен."
+        elif fg_value <= 55:
+            sentiment = "⚪ Нейтрально — без эмоций."
+        elif fg_value <= 75:
+            sentiment = "🟡 Жадность — толпа покупает."
+        else:
+            sentiment = "🟢 Экстремальная жадность — готовься к коррекции."
+        
+        reply = (
+            f"💬 <b>СЕНТИМЕНТ СОЦСЕТЕЙ</b>\n"
+            f"<code>══════════════════════</code>\n\n"
+            f"😱 <b>Страх и Жадность:</b> {fg_value}/100\n"
+            f"📊 {fg_text}\n\n"
+            f"{sentiment}"
+            f"{trends}\n\n"
+            f"<code>══════════════════════</code>\n"
+            f"<i>Данные: Alternative.me + CoinGecko</i>"
+        )
+        return reply
+    except Exception as e:
+        return f"❌ Ошибка: {e}"
 
 def update_trailing_stop():
     for coin, d in ACTIVE_PORTFOLIO.items():
