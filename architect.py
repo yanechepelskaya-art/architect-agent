@@ -1697,6 +1697,47 @@ def get_trade_frequency():
     except:
         return "Ошибка расчёта."
 
+
+def get_rsi(symbol="BTC-USDT", periods=14):
+    try:
+        ohlcv = exchange.fetch_ohlcv(symbol, "5m", limit=periods+1)
+        closes = [c[4] for c in ohlcv]
+        gains = sum(max(closes[i] - closes[i-1], 0) for i in range(1, len(closes)))
+        losses = sum(max(closes[i-1] - closes[i], 0) for i in range(1, len(closes)))
+        avg_gain = gains / periods
+        avg_loss = losses / periods
+        if avg_loss == 0:
+            return 100
+        rs = avg_gain / avg_loss
+        return round(100 - (100 / (1 + rs)), 1)
+    except:
+        return 50
+
+def get_heatmap():
+    try:
+        coins = list(PORTFOLIO.keys())
+        if not coins:
+            return "Портфель пуст."
+        result = ""
+        for coin in coins:
+            rsi = get_rsi(f"{coin}-USDT")
+            if rsi > 70:
+                emoji = "🔥"
+                status = "Перегрета"
+            elif rsi > 50:
+                emoji = "💛"
+                status = "Нейтрально"
+            elif rsi > 30:
+                emoji = "🧊"
+                status = "Остывает"
+            else:
+                emoji = "❄️"
+                status = "Перепродана"
+            result += f"{emoji} {coin}: RSI {rsi} — {status}\n"
+        return result if result else "Нет данных."
+    except:
+        return "Ошибка расчёта."
+
 def update_trailing_stop():
     for coin, d in ACTIVE_PORTFOLIO.items():
         p = get_price(coin)
