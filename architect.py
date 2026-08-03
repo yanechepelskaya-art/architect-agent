@@ -159,8 +159,12 @@ def on_close(ws, a, b): pass
 def on_open(ws): ws.send(json.dumps({"op": "subscribe", "args": [{"channel": "tickers", "instId": "BTC-USDT"}]}))
 
 def websocket_thread():
-    
-
+    while True:
+        try:
+            ws = websocket.WebSocketApp('wss://ws.okx.com:8443/ws/v5/public', on_open=on_open, on_message=on_message, on_error=on_error, on_close=on_close)
+            ws.run_forever()
+        except:
+            time.sleep(5)
 
 while True:
         try:
