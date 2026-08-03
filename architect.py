@@ -160,31 +160,7 @@ def on_open(ws): ws.send(json.dumps({"op": "subscribe", "args": [{"channel": "ti
 
 def websocket_thread():
     
-from flask import Flask, request, jsonify
-app_webhook = Flask(__name__)
 
-@app_webhook.route('/webhook', methods=['POST'])
-def webhook():
-    global last_update_id
-    try:
-        data = request.get_json()
-        if data and 'message' in data:
-            msg = data['message']
-            chat_id = msg['chat']['id']
-            text = msg.get('text', '')
-            
-            # Обрабатываем как обычное сообщение
-            process_message(chat_id, text)
-        return jsonify({'ok': True})
-    except Exception as e:
-        return jsonify({'ok': False, 'error': str(e)})
-
-def run_webhook():
-    app_webhook.run(host='0.0.0.0', port=8080)
-
-
-import threading
-threading.Thread(target=run_webhook, daemon=True).start()
 
 while True:
         try:
@@ -415,15 +391,7 @@ def daily_channel_summary():
 def process_updates():
     global last_update_id, last_phase
     try:
-        # Используем webhook — Render сам получает сообщения
-        if last_update_id == 0:
-            # Устанавливаем webhook
-            webhook_url = "https://architect-agent.onrender.com/webhook"
-            requests.get(f"https://api.telegram.org/bot{TOKEN}/setWebhook?url={webhook_url}", timeout=10)
-            last_update_id = -1
-            time.sleep(2)
-        time.sleep(1)
-        return.json()
+        r = telegram_request(f"https://api.telegram.org/bot{TOKEN}/getUpdates", params={"offset": last_update_id + 1, "timeout": 5}).json()
         for upd in r.get("result", []):
             last_update_id = upd["update_id"]
             msg = upd.get("message", {})
@@ -3704,20 +3672,6 @@ def get_long_short_ratio(symbol="BTC-USDT-SWAP"):
         return 50
 
 
-def process_message(chat_id, text):
-    global last_phase
-    try:
-        t = text
-        if t in ["/status", "📊 Статус"]:
-            reply = "🏰 Статус: агент работает через webhook"
-            requests.post(f"https://api.telegram.org/bot{TOKEN}/sendMessage", json={"chat_id": chat_id, "text": reply, "parse_mode": "HTML"}, timeout=10)
-        elif t in ["/start"]:
-            requests.post(f"https://api.telegram.org/bot{TOKEN}/sendMessage", json={"chat_id": chat_id, "text": "👋 Привет, Архитектор! Webhook работает.", "parse_mode": "HTML"}, timeout=10)
-        else:
-            requests.post(f"https://api.telegram.org/bot{TOKEN}/sendMessage", json={"chat_id": chat_id, "text": f"Получено: {t}", "parse_mode": "HTML"}, timeout=10)
-    except:
-        pass
-
 def update_trailing_stop():
     for coin, d in ACTIVE_PORTFOLIO.items():
         p = get_price(coin)
@@ -3788,34 +3742,10 @@ last_paper = time.time(); last_sharp_check = time.time(); last_daily = time.time
 start_time = time.time()
 
 
-from flask import Flask, request, jsonify
-app_webhook = Flask(__name__)
 
-@app_webhook.route('/webhook', methods=['POST'])
-def webhook():
-    global last_update_id
-    try:
-        data = request.get_json()
-        if data and 'message' in data:
-            msg = data['message']
-            chat_id = msg['chat']['id']
-            text = msg.get('text', '')
-            
-            # Обрабатываем как обычное сообщение
-            process_message(chat_id, text)
-        return jsonify({'ok': True})
-    except Exception as e:
-        return jsonify({'ok': False, 'error': str(e)})
-
-def run_webhook():
-    app_webhook.run(host='0.0.0.0', port=8080)
-
-
-import threading
-threading.Thread(target=run_webhook, daemon=True).start()
 
 while True:
-    time.sleep(0.5)
+    process_updates(); time.sleep(0.5)
     now = time.time()
     if now - last_check >= 300:
         check_black_swan()
