@@ -3632,7 +3632,7 @@ def full_ai_cycle():
         p, v = get_market_data_rest("BTC")
         ch = (p - prev_price) / prev_price * 100
         vol_change = (v - prev_vol) / prev_vol * 100 if prev_vol else 0
-        strength = min(10, max(1, 5 + (1 if ch>0 and v>prev_vol else 0))))
+        strength = min(10, max(1, 5 + (1 if ch>0 and v>prev_vol else 0)))
         rsi = get_rsi()
         
         a_plus = (strength >= 7 and ch > 0.5 and v > prev_vol and "Эманация" in last_phase and rsi < 70)
