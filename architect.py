@@ -1,15 +1,21 @@
 import requests
 
 # Telegram прокси для обхода блокировки
-TELEGRAM_PROXY = {
-    'https': 'https://149.154.167.220:443'
-}
-# Используем прокси для Telegram API
+# Список прокси Telegram
+TELEGRAM_PROXIES = [
+    {},
+    {'https': 'https://149.154.167.220:443'},
+    {'https': 'https://149.154.167.40:443'},
+    {'https': 'https://149.154.175.100:443'},
+]
+
 def telegram_request(url, **kwargs):
-    try:
-        return requests.get(url, proxies=TELEGRAM_PROXY, timeout=15, **kwargs)
-    except:
-        return requests.get(url, timeout=10, **kwargs)
+    for proxy in TELEGRAM_PROXIES:
+        try:
+            return requests.get(url, proxies=proxy if proxy else None, timeout=10, **kwargs)
+        except:
+            continue
+    return requests.get(url, timeout=15, **kwargs)
 import time
 import shutil
 import os
