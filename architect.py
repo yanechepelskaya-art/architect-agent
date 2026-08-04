@@ -392,11 +392,14 @@ def daily_channel_summary():
     )
     send_tg(summary, to_channel=True)
 
+startup_sent = False
+
 def process_updates():
-    global last_update_id, last_phase
+    global last_update_id, last_phase, startup_sent
     try:
-        if last_update_id == 0:
+        if not startup_sent:
             requests.post(f"https://api.telegram.org/bot{TOKEN}/sendMessage", json={"chat_id": CHAT_ID, "text": "🚀 Агент запущен. Отправь /start"})
+            startup_sent = True
 
         r = telegram_request(f"https://api.telegram.org/bot{TOKEN}/getUpdates", params={"offset": last_update_id + 1, "timeout": 5}).json()
         for upd in r.get("result", []):
