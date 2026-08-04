@@ -2,14 +2,19 @@ import requests
 import sys
 import os
 
-def log_step(msg):
-    try:
-        with open("agent.log", "a") as f:
-            f.write(f"{datetime.now().strftime('%H:%M:%S')} {msg}\n")
-    except:
-        pass
+try:
+    with open("agent.log", "w") as f:
+        f.write("1_START\n")
+except:
+    pass
 
-log_step("START")
+try:
+    requests.post("https://api.telegram.org/bot8900618226:AAGPVlCFCNSMiDYrv3DkUbeWorQWrdYti0Q/sendMessage", json={"chat_id": "870512243", "text": "⚡ Агент загружается..."}, timeout=10)
+    with open("agent.log", "a") as f:
+        f.write("2_SENT\n")
+except Exception as e:
+    with open("agent.log", "a") as f:
+        f.write(f"2_ERR:{e}\n")
 try:
     requests.post("https://api.telegram.org/bot8900618226:AAGPVlCFCNSMiDYrv3DkUbeWorQWrdYti0Q/sendMessage", json={"chat_id": "870512243", "text": "⚡ Агент загружается..."}, timeout=10)
     log_step("SENT_MSG")
@@ -406,7 +411,7 @@ def daily_channel_summary():
 
 startup_sent = False
 
-log_step("ENTERING_MAIN_LOOP")
+with open("agent.log", "a") as f: f.write("5_LOOP\n")
 
 def process_updates():
     global last_update_id, last_phase, startup_sent
@@ -414,9 +419,9 @@ def process_updates():
         if not startup_sent:
             try:
                 requests.post(f"https://api.telegram.org/bot{TOKEN}/sendMessage", json={"chat_id": CHAT_ID, "text": "🚀 Агент запущен. Отправь /start"})
-                log_step("STARTUP_SENT")
+                with open("agent.log", "a") as f: f.write("6_STARTUP_SENT\n")
             except Exception as e:
-                log_step(f"STARTUP_ERR: {e}")
+                with open("agent.log", "a") as f: f.write(f"6_ERR:{e}\n")
             startup_sent = True
 
         r = telegram_request(f"https://api.telegram.org/bot{TOKEN}/getUpdates", params={"offset": last_update_id + 1, "timeout": 5}).json()
@@ -3751,9 +3756,9 @@ def paper_trade_logic():
                 if new_stop > pos["stop"]: PAPER_POSITIONS[coin]["stop"] = round(new_stop, 2)
 
 keyboard = {"keyboard": [["👋 Привет", "📊 Статус"], ["😱 Страх", "💀 Ликв"], ["⛓ Ончейн", "📖 Стакан"], ["📰 Новости", "🧭 Компас"], ["⚓ Якорь", "📐 Чертёж"], ["🧠 Сенсор", "🔄 Разворот"], ["💡 Совет", "⚡ Энергия"], ["👁 Тень", "🌬 Дыхание"], ["💓 Пульс", "🗺 Уровни"], ["🪞 Зеркало", "🏮 Маяк"], ["🔮 Прогноз", "📝 Paper"], ["📈 Backtest", "📊 Экспорт"], ["📋 Бэктест", "🤖 ML-Прогноз"], ["⚙ Оптимизация"], ["🛑 Дневной лимит", "🔍 Анализ ошибок"], ["📋 Вотчлист"], ["🧮 Калькулятор"], ["📋 История", "🏆 Топ"], ["📊 Статистика", "📊 Дэшборд"], ["🔗 Ссылка", "📈 График"], ["⏱ Аптайм", "🔍 Сканер"], ["🎯 Удар", "📝 Заметка"], ["⭐ A+ Сигнал", "🕐 Мульти-ТФ"], ["📊 Метрики"], ["📋 Заметки", "⚠️ Профиль"], ["🎭 Сентимент"]], "resize_keyboard": True}
-log_step("IMPORTS_OK")
+with open("agent.log", "a") as f: f.write("3_IMPORTS_OK\n")
 print("Архитектор: агент с полным набором Промптов запущен")
-log_step("STARTED")
+with open("agent.log", "a") as f: f.write("4_STARTED\n")
 init_paper_db()
 migrate_db()
 p_hello = get_price("BTC")
