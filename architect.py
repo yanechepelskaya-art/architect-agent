@@ -16,9 +16,12 @@ except Exception as e:
     with open("agent.log", "a") as f:
         f.write(f"2_ERR:{e}\n")
 try:
-    requests.post("https://api.telegram.org/bot8900618226:AAGPVlCFCNSMiDYrv3DkUbeWorQWrdYti0Q/sendMessage", json={"chat_id": "870512243", "text": "⚡ Агент загружается..."}, timeout=10)
+    r = requests.post("https://api.telegram.org/bot8900618226:AAGPVlCFCNSMiDYrv3DkUbeWorQWrdYti0Q/sendMessage", json={"chat_id": "870512243", "text": "⚡ Агент загружается..."}, timeout=10)
+    with open("agent.log", "a") as f:
+        f.write(f"2_SENT:{r.json()}\n")
 except Exception as e:
-    pass
+    with open("agent.log", "a") as f:
+        f.write(f"2_ERR:{e}\n")
 # Telegram прокси для обхода блокировки
 # Список прокси Telegram
 TELEGRAM_PROXIES = [
