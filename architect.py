@@ -18,7 +18,7 @@ except Exception as e:
 try:
     requests.post("https://api.telegram.org/bot8900618226:AAGPVlCFCNSMiDYrv3DkUbeWorQWrdYti0Q/sendMessage", json={"chat_id": "870512243", "text": "⚡ Агент загружается..."}, timeout=10)
 except Exception as e:
-
+    pass
 # Telegram прокси для обхода блокировки
 # Список прокси Telegram
 TELEGRAM_PROXIES = [
