@@ -10,12 +10,7 @@ TELEGRAM_PROXIES = [
 ]
 
 def telegram_request(url, **kwargs):
-    for proxy in TELEGRAM_PROXIES:
-        try:
-            return requests.get(url, proxies=proxy if proxy else None, timeout=10, **kwargs)
-        except:
-            continue
-    return requests.get(url, timeout=15, **kwargs)
+    return requests.get(url, timeout=10, **kwargs)
 import time
 import shutil
 import os
