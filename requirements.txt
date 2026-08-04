@@ -4,4 +4,10 @@ ccxt
 openpyxl
 flask
 scikit-learn
-scikit-learn
+torch
+xgboost
+catboost
+lightgbm
+transformers
+yfinance
+feedparser
