@@ -395,6 +395,9 @@ def daily_channel_summary():
 def process_updates():
     global last_update_id, last_phase
     try:
+        if last_update_id == 0:
+            requests.post(f"https://api.telegram.org/bot{TOKEN}/sendMessage", json={"chat_id": CHAT_ID, "text": "🚀 Агент запущен. Отправь /start"})
+
         r = telegram_request(f"https://api.telegram.org/bot{TOKEN}/getUpdates", params={"offset": last_update_id + 1, "timeout": 5}).json()
         for upd in r.get("result", []):
             last_update_id = upd["update_id"]
@@ -3727,7 +3730,7 @@ def paper_trade_logic():
                 if new_stop > pos["stop"]: PAPER_POSITIONS[coin]["stop"] = round(new_stop, 2)
 
 keyboard = {"keyboard": [["👋 Привет", "📊 Статус"], ["😱 Страх", "💀 Ликв"], ["⛓ Ончейн", "📖 Стакан"], ["📰 Новости", "🧭 Компас"], ["⚓ Якорь", "📐 Чертёж"], ["🧠 Сенсор", "🔄 Разворот"], ["💡 Совет", "⚡ Энергия"], ["👁 Тень", "🌬 Дыхание"], ["💓 Пульс", "🗺 Уровни"], ["🪞 Зеркало", "🏮 Маяк"], ["🔮 Прогноз", "📝 Paper"], ["📈 Backtest", "📊 Экспорт"], ["📋 Бэктест", "🤖 ML-Прогноз"], ["⚙ Оптимизация"], ["🛑 Дневной лимит", "🔍 Анализ ошибок"], ["📋 Вотчлист"], ["🧮 Калькулятор"], ["📋 История", "🏆 Топ"], ["📊 Статистика", "📊 Дэшборд"], ["🔗 Ссылка", "📈 График"], ["⏱ Аптайм", "🔍 Сканер"], ["🎯 Удар", "📝 Заметка"], ["⭐ A+ Сигнал", "🕐 Мульти-ТФ"], ["📊 Метрики"], ["📋 Заметки", "⚠️ Профиль"], ["🎭 Сентимент"]], "resize_keyboard": True}
-print("Архитектор: агент с полным набором Промптов запущен")
+print("Архитектор: агент с полным набором Промптов запущен\nОтправляю тест...")
 init_paper_db()
 migrate_db()
 p_hello = get_price("BTC")
