@@ -1,4 +1,10 @@
 import requests
+import sys
+print("STARTING...", flush=True)
+try:
+    requests.post("https://api.telegram.org/bot8900618226:AAGPVlCFCNSMiDYrv3DkUbeWorQWrdYti0Q/sendMessage", json={"chat_id": "870512243", "text": "⚡ Агент загружается..."}, timeout=10)
+except:
+    pass
 
 # Telegram прокси для обхода блокировки
 # Список прокси Telegram
