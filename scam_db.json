@@ -1,0 +1,33 @@
+{
+  "domains": [
+    "xwallet.one",
+    "xwalletplatform.com",
+    "xwallet.buzz",
+    "official-xwallet.com",
+    "x-walletcoin.com",
+    "xwalletchain.io",
+    "mascorapp.com",
+    "mascor-labs.com",
+    "mascorswap.com",
+    "mascor.net",
+    "mascornetwork.com",
+    "calabiapp.com",
+    "esol-platform.com",
+    "legasapp.com",
+    "santander-verification.com",
+    "downloadwindows.run",
+    "downloadonwindows.run",
+    "downloadfile.run",
+    "fureos.run",
+    "crynes.run",
+    "example-sunny.top",
+    "saliik-bn.top"
+  ],
+  "emails": [
+    "rikutapekani83@gmail.com",
+    "dc7d9010ed9d9b41s@gmail.com"
+  ],
+  "names": ["Miho"],
+  "registrars": ["PDR Ltd.", "PublicDomainRegistry.com"],
+  "ips": ["104.21.65.82", "172.67.201.72", "72.22.93.2"]
+}
