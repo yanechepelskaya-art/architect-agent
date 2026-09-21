@@ -1,7 +1,21 @@
 services:
   - type: worker
-    name: architect-agent
+    name: architect-watch
     env: python
     buildCommand: pip install -r requirements.txt
-    startCommand: python3 run_all.py
+    startCommand: python3 auto_watch.py
+    plan: starter
+
+  - type: worker
+    name: architect-bot
+    env: python
+    buildCommand: pip install -r requirements.txt
+    startCommand: python3 agent_light.py
+    plan: starter
+
+  - type: worker
+    name: architect-collect
+    env: python
+    buildCommand: pip install -r requirements.txt
+    startCommand: python3 collect_data.py
     plan: starter
