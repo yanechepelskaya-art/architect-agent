@@ -1,1 +1,1 @@
-web: python3 architect_light.py
+worker: python3 auto_watch.py

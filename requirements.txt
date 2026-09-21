@@ -1,13 +1,6 @@
 requests
-websocket-client
-ccxt
-openpyxl
-flask
 scikit-learn
 torch
-xgboost
-catboost
-lightgbm
-transformers
-yfinance
-feedparser
+numpy
+pandas
+PySocks

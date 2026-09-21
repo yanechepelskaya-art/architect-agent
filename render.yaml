@@ -3,12 +3,5 @@ services:
     name: architect-agent
     env: python
     buildCommand: pip install -r requirements.txt
-    startCommand: python3 architect.py
-    plan: starter
-    
-  - type: web
-    name: architect-dashboard
-    env: python
-    buildCommand: pip install -r requirements.txt
-    startCommand: python3 dashboard.py
+    startCommand: python3 auto_watch.py
     plan: starter
