@@ -1,3 +1,6 @@
+import os
+os.environ["HTTPS_PROXY"] = "socks5://127.0.0.1:10808"
+os.environ["HTTP_PROXY"] = "socks5://127.0.0.1:10808"
 import time
 import requests
 from datetime import datetime
@@ -17,13 +20,16 @@ MIN_VOLUME = 2500
 
 # Макро-события (дата и время в формате YYYY-MM-DD HH:MM)
 MACRO_EVENTS = [
-    {"date": "2026-09-15 18:00", "name": "CLARITY Act"},
-    {"date": "2026-09-16 21:00", "name": "ФРС / ставка"},
+    # Актуальные события. Обновляй по мере появления.
+    # Формат: {"date": "YYYY-MM-DD HH:MM", "name": "Название"}
 ]
 last_macro_notified = {}
 
 last_notified = None
 last_phase = None
+last_direction = None
+last_move_notified = None
+last_funding_notified = None
 trade_price = None
 trade_time = None
 
@@ -130,6 +136,14 @@ def execute_trade(price, vol_5m):
             f"Нужны ключи OKX."
         )
 
+def detect_direction(price, chg):
+    if chg > 1:
+        return "Север"
+    elif chg < -1:
+        return "Юг"
+    else:
+        return "Восток"
+
 def check_macro_events():
     """Проверяет приближение макро-событий"""
     from datetime import datetime as _dt
@@ -173,7 +187,97 @@ def detect_phase(price, vol_5m):
         return "🔴 Вынос"
     return "⚪ Сжатие"
 
+def check_verdict():
+    # Автообновление Сенсора
+    try:
+        import agent_light
+        df = agent_light.get_recent_candles(symbol="BTC-USDT", timeframe="5m", limit=100)
+        agent_light.calculate_pressure_score(df, period=24)
+    except Exception as e:
+        print("SENSOR_ERR", e)
+
+    # Автообновление результатов сигналов
+    try:
+        import update_results
+        update_results.update_results()
+    except Exception as e:
+        print("RESULTS_ERR", e)
+
+    """Проверяет signal_log.csv и отправляет уведомление, если все блокеры сняты."""
+    try:
+        import csv, datetime
+        from pathlib import Path as P
+        log_path = P.home() / "Desktop" / "signal_log.csv"
+        if not log_path.exists():
+            return
+
+        latest = {}
+        with open(log_path, "r", encoding="utf-8") as f:
+            reader = csv.reader(f)
+            next(reader, None)
+            for row in reader:
+                if len(row) >= 5:
+                    latest[row[1]] = {"time": row[0], "price": row[2], "readiness": row[3], "layers": row[4]}
+
+        def fresh(rec):
+            try:
+                t = datetime.datetime.fromisoformat(rec["time"])
+                return (datetime.datetime.now() - t).total_seconds() < 900
+            except:
+                return False
+
+        aplus = latest.get("A+")
+        impulse = latest.get("Импульс")
+        shadow = latest.get("Тень")
+
+        blockers = []
+        if aplus and fresh(aplus):
+            try:
+                score = int(aplus["layers"]) if aplus["layers"] else 0
+                if score < 6:
+                    blockers.append(f"A+: {score}/9")
+            except:
+                blockers.append("A+: нет данных")
+        else:
+            blockers.append("A+: нет свежих данных")
+
+        if impulse and fresh(impulse):
+            try:
+                rd = int(impulse["readiness"]) if impulse["readiness"] else 0
+                if rd < 50:
+                    blockers.append(f"Импульс: {rd}%")
+            except:
+                blockers.append("Импульс: нет данных")
+        else:
+            blockers.append("Импульс: нет свежих данных")
+
+        if shadow and fresh(shadow):
+            layers = shadow["layers"].split("|")
+            if len(layers) >= 2 and layers[1] in ("сильная", "средняя"):
+                blockers.append(f"Тень: {layers[1]}")
+        else:
+            blockers.append("Тень: нет свежих данных")
+
+        global last_verdict_notified
+        if not blockers:
+            if last_verdict_notified != "ok":
+                price_now = aplus["price"] if aplus else (impulse["price"] if impulse else "—")
+                send_tg(
+                    f"🧿 <b>ВЕРДИКТ: ВОЗМОЖЕН ВХОД</b>\n\n"
+                    f"₿ BTC: ${price_now}\n\n"
+                    f"✅ Все блокеры сняты.\n"
+                    f"🎯 Проверь зону и A+.\n\n"
+                    f"📐 <i>Чертёж: вердикт — карта решений, не команда.</i>"
+                )
+                last_verdict_notified = "ok"
+        else:
+            last_verdict_notified = None
+    except Exception as e:
+        print("VERDICT_ERR", e)
+
+
 def check():
+
     global last_notified
     data = get_data()
     if not data:
@@ -192,18 +296,117 @@ def check():
     # Автовход: A+ + зона + объём
     # ── Уведомление об A+ ──
     # ── Проверка смены фазы ──
+    # ── Проверка смены направления ──
+    global last_direction
+    try:
+        r_dir = requests.get("https://www.okx.com/api/v5/market/ticker?instId=BTC-USDT", timeout=10)
+        dd = r_dir.json()["data"][0]
+        chg_dir = (float(dd["last"]) - float(dd["open24h"])) / float(dd["open24h"]) * 100
+        current_dir = detect_direction(price, chg_dir)
+        if last_direction is None:
+            last_direction = current_dir
+        elif current_dir != last_direction:
+            send_tg(
+                f"🔄 <b>СМЕНА НАПРАВЛЕНИЯ</b>\n\n"
+                f"₿ BTC: ${price:,.0f}\n"
+                f"Было: {last_direction}\n"
+                f"Стало: <b>{current_dir}</b>\n\n"
+                f"📐 Смена возможна."
+            )
+            last_direction = current_dir
+    except Exception:
+        pass
+
+    # ── Проверка макро-событий ──
+    check_macro_events()
+
+
+    # ── Проверка сильного движения ──
+    global last_move_notified
+    try:
+        r_mv = requests.get("https://www.okx.com/api/v5/market/candles?instId=BTC-USDT&bar=15m&limit=2", timeout=10)
+        mv_data = r_mv.json()["data"][::-1]
+        if len(mv_data) >= 2:
+            open_15 = float(mv_data[0][1])
+            close_15 = float(mv_data[-1][4])
+            move_pct = (close_15 - open_15) / open_15 * 100
+            if abs(move_pct) >= 2 and last_move_notified != "yes":
+                direction = "вверх" if move_pct > 0 else "вниз"
+                send_tg(
+                    f"⚡ <b>СИЛЬНОЕ ДВИЖЕНИЕ</b>\n\n"
+                    f"₿ BTC: ${price:,.0f}\n"
+                    f"Δ: {move_pct:+.2f}% за 15 мин\n"
+                    f"Направление: {direction}\n\n"
+                    f"📐 Возможен вынос."
+                )
+                last_move_notified = "yes"
+            elif abs(move_pct) < 1:
+                last_move_notified = None
+    except Exception:
+        pass
+
+
+    # ── Проверка funding-перекоса ──
+    global last_funding_notified
+    try:
+        r_fr = requests.get("https://www.okx.com/api/v5/public/funding-rate?instId=BTC-USDT-SWAP", timeout=10)
+        fr_data = r_fr.json()["data"][0]
+        fr_val = float(fr_data["fundingRate"]) * 100
+        if abs(fr_val) >= 0.05 and last_funding_notified != "yes":
+            if fr_val > 0:
+                crowd = "в лонгах"
+                risk = "вынос вниз"
+            else:
+                crowd = "в шортах"
+                risk = "вынос вверх"
+            send_tg(
+                f"⚡ <b>FUNDING-ПЕРЕКОС</b>\n\n"
+                f"₿ BTC: ${price:,.0f}\n"
+                f"Funding: {fr_val:+.4f}%\n"
+                f"Толпа: {crowd}\n"
+                f"Риск: {risk}\n\n"
+                f"📐 Топливо для выноса."
+            )
+            last_funding_notified = "yes"
+        elif abs(fr_val) < 0.03:
+            last_funding_notified = None
+    except Exception:
+        pass
+
+
     global last_phase
     current_phase = detect_phase(price, vol_5m)
     if last_phase is None:
         last_phase = current_phase
     elif current_phase != last_phase:
-        send_tg(
-            f"🔄 <b>СМЕНА ФАЗЫ</b>\n\n"
-            f"₿ BTC: ${price:,.0f}\n\n"
-            f"Было: {last_phase}\n"
-            f"Стало: <b>{current_phase}</b>\n\n"
-            f"📐 Вход — только по сигналу."
-        )
+        # Уведомление ТОЛЬКО при смене на Импульс
+        if "Импульс" in current_phase or "импульс" in current_phase:
+            # Проверка импульса: пробой + объём
+            pulse_ok = False
+            pulse_note = "⚠️ Импульс не подтверждён: пробоя нет, объём слабый"
+            try:
+                r_imp = okx_get("https://www.okx.com/api/v5/market/ticker?instId=BTC-USDT")
+                d_imp = r_imp.json()["data"][0]
+                vol_now = float(d_imp.get("vol24h", 0))
+                if vol_now > 5000:
+                    pulse_ok = True
+                    pulse_note = "✅ Импульс подтверждён: объём растёт"
+                else:
+                    pulse_note = f"⚠️ Импульс не подтверждён: объём {vol_now:,.0f} < 5000"
+            except Exception:
+                pass
+
+            # Отправляем ТОЛЬКО если импульс подтверждён
+            if pulse_ok:
+                send_tg(
+                    f"🔄 <b>СМЕНА ФАЗЫ: ИМПУЛЬС</b>\n\n"
+                    f"₿ BTC: ${price:,.0f}\n\n"
+                    f"Было: {last_phase}\n"
+                    f"Стало: <b>{current_phase}</b>\n\n"
+                    f"{pulse_note}\n\n"
+                    f"📐 Вход — только по сигналу A+."
+                )
+        last_phase = current_phase
         last_phase = current_phase
 
     if aplus and last_notified != "aplus" and last_notified != "trade":
@@ -317,4 +520,5 @@ if __name__ == "__main__":
     send_tg("🔔 <b>Автономный режим V2 запущен</b>\n\nСлежу за зоной $" + f"{ZONE:,}" + " + объёмом")
     while True:
         check()
+        check_verdict()
         time.sleep(CHECK_INTERVAL)

@@ -1,3 +1,6 @@
+import os
+# os.environ["HTTPS_PROXY"] = "socks5://127.0.0.1:10809"
+# os.environ["HTTP_PROXY"] = "socks5://127.0.0.1:10809"
 import requests, json, time
 from sklearn.ensemble import RandomForestClassifier
 import numpy as np
@@ -30,14 +33,57 @@ def log_accuracy(signal, price, direction):
     except Exception:
         pass
 
+def check_kill_switch():
+    """Проверяет, не превышен ли дневной лимит убытка."""
+    try:
+        import json
+        import datetime
+        from pathlib import Path as P
+        
+        cfg_path = P.home() / "Desktop" / "risk_config.json"
+        pnl_path = P.home() / "Desktop" / "daily_pnl.json"
+        
+        if not cfg_path.exists() or not pnl_path.exists():
+            return False, "нет данных"
+        
+        cfg = json.loads(cfg_path.read_text(encoding="utf-8"))
+        pnl = json.loads(pnl_path.read_text(encoding="utf-8"))
+        
+        deposit = cfg.get("deposit", 100)
+        max_loss_pct = cfg.get("max_daily_loss_percent", 3)
+        max_loss_usd = deposit * max_loss_pct / 100
+        
+        today = datetime.date.today().isoformat()
+        if pnl.get("date") != today:
+            # Новый день — сбрасываем
+            pnl = {"date": today, "pnl": 0, "trades": 0, "wins": 0, "losses": 0}
+            pnl_path.write_text(json.dumps(pnl, indent=2), encoding="utf-8")
+            return False, "новый день"
+        
+        current_pnl = pnl.get("pnl", 0)
+        if current_pnl <= -max_loss_usd:
+            return True, f"дневной убыток ${current_pnl:.2f} ≥ ${max_loss_usd:.2f}"
+        
+        # Проверка серии убытков
+        max_consec = cfg.get("max_consecutive_losses", 3)
+        consec = pnl.get("consecutive_losses", 0)
+        if consec >= max_consec:
+            return True, f"серия убытков: {consec} подряд (лимит {max_consec})"
+        
+        return False, f"PnL дня: ${current_pnl:.2f} | серия: {consec}"
+    except Exception as e:
+        return False, f"ошибка: {e}"
+
+
 def log_signal(button, price, readiness="", layers=""):
     try:
         import datetime
         from pathlib import Path as P
         log_path = P.home() / "Desktop" / "signal_log.csv"
-        line = f"{datetime.datetime.now().isoformat()},{button},{price},{readiness},{layers}\n"
+        # Поля: time, button, price, readiness, layers, result_30m, result_price, correct
+        line = f"{datetime.datetime.now().isoformat()},{button},{price},{readiness},{layers},,,\n"
         if not log_path.exists():
-            log_path.write_text("time,button,price,readiness,layers\n", encoding="utf-8")
+            log_path.write_text("time,button,price,readiness,layers,result_30m,result_price,correct\n", encoding="utf-8")
         with open(log_path, "a", encoding="utf-8") as f:
             f.write(line)
     except Exception:
@@ -309,6 +355,7 @@ def main_menu():
 #             ["📘 Обучение", "🏰 Об агенте"],
 #             ["📓 Журнал Сенсора", "📊 Оценка Сенсора"],
 #             ["👁 Журнал Тени", "📊 Оценка Тени"],
+            ["🧿 Вердикт"],
             ["🧠 Экран", "🗺 Карта", "🐟 Рыбка"],
             ["🧠 Сводка", "🎯 A+ Сигнал", "🔮 Куда пойдёт"],
             ["⚡ Импульс", "📍 Точка входа"],
@@ -317,7 +364,7 @@ def main_menu():
             ["🌐 HTF"],
             ["🧿 След ММ", "🔮 Прогноз фазы"],
             ["🔍 Проверка сервиса", "📊 Виртуальный журнал"],
-            ["📊 Журнал сделок", "📝 Добавить сделку"],
+            ["⚖️ Риск", "📈 Статистика"],
             ["📓 Журналы", "🏰 Об агенте"]
         ],
         "resize_keyboard": True
@@ -379,7 +426,7 @@ def process():
     global JOURNAL
     global ML_HISTORY
     global last_update_id
-    r = requests.get(f"https://api.telegram.org/bot{TOKEN}/getUpdates", params={"offset": last_update_id + 1, "timeout": 5}, timeout=10).json()
+    r = requests.get(f"https://api.telegram.org/bot{TOKEN}/getUpdates", params={"offset": last_update_id + 1, "timeout": 3}, timeout=8).json()
     for upd in r.get("result", []):
         last_update_id = upd["update_id"]
         msg = upd.get("message", {})
@@ -398,19 +445,50 @@ def process():
             try:
                 import json as _json
                 parts = [p.strip() for p in t.split(",")]
-                if len(parts) == 4:
+                if len(parts) >= 4:
                     side = parts[0].lower()
                     entry = float(parts[1])
                     exit_p = float(parts[2])
                     pnl = float(parts[3])
+                    by_system = bool(int(parts[4])) if len(parts) >= 5 else None
+                    breakeven = bool(int(parts[5])) if len(parts) >= 6 else None
+                    risk = float(parts[6]) if len(parts) >= 7 else None
+                    result_r = round(pnl / risk, 2) if risk and risk > 0 else None
+                    record = {
+                        "side": side,
+                        "entry": entry,
+                        "exit": exit_p,
+                        "pnl": pnl,
+                        "by_system": by_system,
+                        "breakeven": breakeven,
+                        "risk": risk,
+                        "result_r": result_r,
+                    }
                     with open("trades.json", "r") as f:
                         data = _json.load(f)
-                    data["trades"].append({"side": side, "entry": entry, "exit": exit_p, "pnl": pnl})
+                    data["trades"].append(record)
                     with open("trades.json", "w") as f:
                         _json.dump(data, f, indent=2)
-                    send_tg(f"✅ <b>СДЕЛКА ЗАПИСАНА</b>\n\nСторона: {side}\nВход: {entry}\nВыход: {exit_p}\nPnL: {pnl:+.2f}$", main_menu())
+                    send_tg(
+                        f"✅ <b>СДЕЛКА ЗАПИСАНА</b>\n\n"
+                        f"Сторона: {side}\n"
+                        f"Вход: {entry}\n"
+                        f"Выход: {exit_p}\n"
+                        f"PnL: {pnl:+.2f}$\n"
+                        f"По системе: {'да' if by_system else 'нет' if by_system is False else '—'}\n"
+                        f"Безубыток: {'да' if breakeven else 'нет' if breakeven is False else '—'}\n"
+                        f"Риск: {risk if risk else '—'}\n"
+                        f"Результат: {result_r if result_r else '—'}R",
+                        main_menu()
+                    )
                 else:
-                    send_tg("❌ Неверный формат. Пример: long, 76936, 77800, 21.4", main_menu())
+                    send_tg(
+                        "❌ Неверный формат.\n\n"
+                        "Минимум: <code>long, 76149, 77680, 15.3</code>\n"
+                        "Полный: <code>long, 76149, 77680, 15.3, 1, 1, 5</code>\n\n"
+                        "Поля: сторона, вход, выход, PnL, по_системе(0/1), безубыток(0/1), риск($)",
+                        main_menu()
+                    )
             except Exception as e:
                 send_tg(f"❌ Ошибка: {e}", main_menu())
             continue
@@ -886,29 +964,17 @@ def process():
                     f"₿ BTC: ${price:,.0f}\n"
                     f"24ч: {chg:+.2f}%\n"
                     f"Объём: ${vol:,.0f}\n\n"
-                    f"📅 События:\n"
-                    f"• 15.09 — CLARITY Act\n"
-                    f"• 16.09 — ФРС / ставка\n\n"
-                    f"⚠️ Перед событиями: плечо ≤ 10x, без A+ не входить.\n\n"
                     f"💵 {liq}\n"
-                    f"🧭 {macro}\n"
-                    f"💲 Доллар: {'слабеет' if chg < 0 else 'укрепляется'}\n"
-                    f"🧠 <b>Корреляция:</b> укрепление доллара → давление на BTC. S&P держится → риск-аппетит сохраняется.\n\n"
+                    f"🧭 {macro}\n\n"
                     f"⚠️ Риск: {'повышен' if chg < -0.5 else 'умеренный'}\n"
                     f"💡 <i>Крупные деньги смотрят на общий фон, а не на свечу.</i>\n"
                     f"🧿 <b>Режим: {'риск-офф' if chg < -0.5 else 'риск-он'}</b>\n\n"
                     f"🔮 <b>Прогноз:</b>\n"
                     f"• Режим: {'риск-офф — осторожно' if chg < -0.5 else 'риск-он — можно работать'}\n"
-                    f"• События: 15–16.09 — высокая волатильность\n"
                     f"• Ожидание: {'давление вниз' if chg < -0.5 else 'потенциал вверх' if chg > 0 else 'боковик'}\n\n"
-                    f"🎯 <b>Действие:</b> до 15.09 — половинный лот. После событий — по A+.\n\n"
-
-                    f"⚡ <b>Влияние событий:</b>\n"
-                    f"• 15.09 — CLARITY Act: высокая волатильность\n"
-                    f"• 16.09 — ФРС: ставка / риторика\n\n"
-                    f"🧭 <b>Действие:</b> до 15.09 — половинный лот. Без A+ и объёма не входить.\n\n"
+                    f"🎯 <b>Действие:</b> без A+ и объёма не входить.\n\n"
                     f"📐 <i>Чертёж: сначала макро, потом сделка.</i>\n"
-                    f"📡 <i>Источник: Trading Economics / Bloomberg</i>",
+                    f"📡 <i>Источник: OKX (BTC) + макро-контекст</i>",
                     main_menu()
                 )
             except Exception as e:
@@ -1052,6 +1118,8 @@ def process():
                 # Если направление вниз и Сенсор давит — усиливаем
                 if direction == "вниз" and last_score < -10:
                     shadow_prob += 10
+                # Логирование для Вердикта
+                log_signal("Тень", price, "", f"{direction}|{shadow_power}|{shadow_prob}")
 
                 # Журнал Тени
                 try:
@@ -1390,6 +1458,8 @@ def process():
                 else:
                     direction = "Восток (боковик)"
                     sense = "Рынок без вектора. Лучшая позиция — наблюдение."
+                # Логирование для Вердикта
+                log_signal("Компас", price, "", direction)
                 send_tg(
                     f"🧭 <b>КОМПАС АРХИТЕКТОРА</b>\n\n"
                     f"<code>────────────────</code>\n\n"
@@ -1620,7 +1690,7 @@ def process():
                     else:
                         signal = "❌ Импульса нет"
 
-                    log_signal("Импульс", price, readiness)
+                    log_signal("Импульс", price, readiness, f"{'вверх' if breakout else 'вниз' if breakdown else 'боковик'}")
                     log_accuracy("Импульс", price, "up" if breakout else "down")
                     send_tg(
                         f"⚡ <b>ИМПУЛЬС АРХИТЕКТОРА</b>\n\n"
@@ -1695,7 +1765,7 @@ def process():
                     f"Цель: ${t1:,.0f}\n\n"
                     f"⏰ Сессия: {session}\n"
                     f"Окно импульса: {window}\n"
-                    f"Отмена: закрепление выше ${stop + 500:,.0f}\n"
+                    f"Отмена: закрепление ниже ${stop + 500:,.0f}\n"
                     f"Объём для входа: > 2500 BTC / 5 мин\n\n"
                     f"💡 <i>Жди подтверждение от A+ и Импульса.</i>\n\n"
                     f"📝 <i>Рынок: {'покупатели держат' if price > low else 'продавцы давят'}. Сессия: {session}. Ждём подтверждение.</i>",
@@ -1871,6 +1941,8 @@ def process():
                     mm_view = "ММ поднимает вверх"
                 else:
                     mm_view = "ММ в балансе"
+                # Логирование для Вердикта
+                log_signal("След ММ", float(data[-1][4]), "", f"{pressure}|{mm_view}")
 
                 send_tg(
                     f"🧿 <b>СЛЕД МАРКЕТМЕЙКЕРА</b>\n\n"
@@ -1936,6 +2008,8 @@ def process():
                         res = "🔴 Сигнал: продавцы ведут"
                     else:
                         res = "⚪ Баланс. Сигнала нет."
+                    # Логирование для Вердикта
+                    log_signal("Дельта", float(data[-1][4]), "", f"{buy_pct:.1f}|{sell_pct:.1f}")
 
                     send_tg(
                         f"📊 <b>ДЕЛЬТА ОБЪЁМА</b>\n\n"
@@ -1993,6 +2067,8 @@ def process():
                         regime = "🔴 Тренд вниз"
                     else:
                         regime = "⚪ Флэт"
+                    # Логирование для Вердикта
+                    log_signal("HTF", closes[-1], "", regime)
                     send_tg(
                         f"🌐 <b>HTF CONTEXT</b>\n\n"
                         f"<code>────────────────</code>\n\n"
@@ -2256,7 +2332,7 @@ def process():
                     f"— Сопротивление 2: ${res2:,.0f}\n\n"
                     f"💡 <i>Входить только от зоны, не догоняя.</i>\n"
                     f"Условие входа: касание ${entry:,.0f} + объём > 2500 BTC/5 мин\n"
-                    f"Отмена: закрепление выше ${stop + 500:,.0f}\n\n"
+                    f"Отмена: закрепление ниже ${stop + 500:,.0f}\n\n"
                     f"📐 <i>Чертёж: точка — это место, а не команда.</i>",
                     main_menu()
                 )
@@ -2314,6 +2390,27 @@ def process():
                         layer_details.append(f"Сенсор ❌ ({last_score})")
                 except:
                     layer_details.append("Сенсор ❌")
+
+                # OI change из training_data.csv
+                try:
+                    import csv as _csv
+                    from pathlib import Path as _P
+                    _td = _P.home() / "Desktop" / "training_data.csv"
+                    oi_chg = 0.0
+                    if _td.exists():
+                        with open(_td, "r", encoding="utf-8") as _f:
+                            _rows = list(_csv.DictReader(_f))
+                            if _rows:
+                                oi_chg = float(_rows[-1].get("oi_change_5", 0))
+                    if oi_chg > 0.5:
+                        score_layers += 1
+                        layer_details.append(f"OI ✅ ({oi_chg:+.2f}%)")
+                    elif oi_chg < -0.5:
+                        layer_details.append(f"OI ❌ ({oi_chg:+.2f}%)")
+                    else:
+                        layer_details.append(f"OI ⚪ ({oi_chg:+.2f}%)")
+                except:
+                    layer_details.append("OI ❌")
 
                 try:
                     rr_en = okx_get("https://www.okx.com/api/v5/market/candles?instId=BTC-USDT&bar=15m&limit=10")
@@ -2407,12 +2504,12 @@ def process():
                     pass
 
                 if prob_up is not None and prob_up < 0.60:
-                    log_signal("A+", price, "", score_layers)
+                    log_signal("A+", price, "", f"{score_layers}|{';'.join(layer_details)}|{'вверх' if prob_up and prob_up >= 0.60 else 'вниз'}")
                     log_accuracy("A+", price, "up" if prob_up >= 0.60 else "down")
                     send_tg(
                         f"🎯 <b>A+ СИГНАЛ ЗАБЛОКИРОВАН ML</b>\n\n"
                         f"<code>────────────────</code>\n\n"
-                        f"Совпадение: {score_layers}/9\n"
+                        f"Совпадение: {score_layers}/10\n"
                         f"Позиция: {'полная' if score_layers >= 6 else 'половинная' if score_layers >= 4 else 'не входить'}\n"
                         f"{'; '.join(layer_details)}\n\n"
                         f"Вероятность роста: {int(prob_up*100)}%\n"
@@ -3500,6 +3597,424 @@ def process():
             )
             user_state[CHAT_ID] = "awaiting_trade_input"
 
+        elif t == "🧿 Вердикт":
+            try:
+                import csv, datetime
+                from pathlib import Path as P
+                log_path = P.home() / "Desktop" / "signal_log.csv"
+                if not log_path.exists():
+                    send_tg("🧿 Вердикт: нет данных. Нажми кнопки анализа.", main_menu())
+                else:
+                    # Читаем последние записи по каждому типу
+                    latest = {}
+                    with open(log_path, "r", encoding="utf-8") as f:
+                        reader = csv.reader(f)
+                        next(reader, None)
+                        for row in reader:
+                            if len(row) >= 5:
+                                latest[row[1]] = {"time": row[0], "price": row[2], "readiness": row[3], "layers": row[4]}
+
+                    # Проверка свежести (не старше 30 минут)
+                    def fresh(rec):
+                        try:
+                            t = datetime.datetime.fromisoformat(rec["time"])
+                            return (datetime.datetime.now() - t).total_seconds() < 900
+                        except:
+                            return False
+
+                    # Собираем слои
+                    aplus = latest.get("A+")
+                    impulse = latest.get("Импульс")
+                    shadow = latest.get("Тень")
+                    delta = latest.get("Дельта")
+                    htf = latest.get("HTF")
+                    mm = latest.get("След ММ")
+                    compass = latest.get("Компас")
+
+                    # Блокеры
+                    blockers = []
+                    if aplus and fresh(aplus):
+                        try:
+                            layers_str = aplus["layers"]
+                            parts = layers_str.split("|")
+                            score = int(parts[0]) if parts[0] else 0
+                            if score < 6:
+                                missing = ""
+                                if len(parts) >= 2:
+                                    details = parts[1].split(";")
+                                    missing_layers = [d.split()[0] for d in details if "❌" in d]
+                                    if missing_layers:
+                                        missing = " | Не хватает: " + ", ".join(missing_layers)
+                                blockers.append(f"🎯 A+: {score}/10 (нужно 6+){missing}")
+                        except:
+                            blockers.append("🎯 A+: нет данных")
+                    else:
+                        blockers.append("🎯 A+: нет свежих данных")
+
+                    if impulse and fresh(impulse):
+                        try:
+                            rd = int(impulse["readiness"]) if impulse["readiness"] else 0
+                            if rd < 50:
+                                blockers.append(f"⚡ Импульс: готовность {rd}% (нужно 50+)")
+                        except:
+                            blockers.append("⚡ Импульс: нет данных")
+                    else:
+                        blockers.append("⚡ Импульс: нет свежих данных")
+
+                    if shadow and fresh(shadow):
+                        layers = shadow["layers"].split("|")
+                        if len(layers) >= 2 and layers[1] in ("сильная", "средняя"):
+                            blockers.append(f"👁 Тень: {layers[1]} — вход рано")
+                    else:
+                        blockers.append("👁 Тень: нет свежих данных")
+
+                    # Поддержка
+                    support = []
+                    if delta and fresh(delta):
+                        layers = delta["layers"].split("|")
+                        if len(layers) >= 2:
+                            try:
+                                buy = float(layers[0])
+                                # Ищем предыдущую запись Дельты для динамики
+                                prev_buy = None
+                                with open(log_path, "r", encoding="utf-8") as f:
+                                    reader2 = csv.reader(f)
+                                    next(reader2, None)
+                                    delta_rows = [r for r in reader2 if len(r) >= 5 and r[1] == "Дельта"]
+                                if len(delta_rows) >= 2:
+                                    prev_layers = delta_rows[-2][4].split("|")
+                                    if len(prev_layers) >= 1:
+                                        prev_buy = float(prev_layers[0])
+
+                                dyn = ""
+                                if prev_buy is not None:
+                                    diff = buy - prev_buy
+                                    if diff > 2:
+                                        dyn = " (растёт)"
+                                    elif diff < -2:
+                                        dyn = " (падает)"
+                                    else:
+                                        dyn = " (ровно)"
+
+                                if buy >= 53:
+                                    support.append(f"📊 Дельта: покупатели {buy:.0f}%{dyn}")
+                                elif buy <= 47:
+                                    support.append(f"📊 Дельта: продавцы {100-buy:.0f}%{dyn}")
+                            except:
+                                pass
+                    if htf and fresh(htf):
+                        if "вверх" in htf["layers"]:
+                            support.append("🌐 HTF: тренд вверх")
+                        elif "вниз" in htf["layers"]:
+                            support.append("🌐 HTF: тренд вниз")
+                    if mm and fresh(mm):
+                        if "вверх" in mm["layers"]:
+                            support.append("🧿 След ММ: давление вверх")
+                        elif "вниз" in mm["layers"]:
+                            support.append("🧿 След ММ: давление вниз")
+                    if compass and fresh(compass):
+                        if "Север" in compass["layers"]:
+                            support.append("🧭 Компас: Север (вверх)")
+                        elif "Юг" in compass["layers"]:
+                            support.append("🧭 Компас: Юг (вниз)")
+                        else:
+                            support.append("🧭 Компас: Восток (боковик)")
+
+                    # Макро
+                    macro_mode = ""
+                    try:
+                        r_macro = okx_get("https://www.okx.com/api/v5/market/ticker?instId=BTC-USDT").json()
+                        d_macro = r_macro["data"][0]
+                        price_m = float(d_macro["last"])
+                        open_m = float(d_macro["open24h"])
+                        chg_m = (price_m - open_m) / open_m * 100 if open_m else 0
+                        if chg_m < -0.5:
+                            macro_mode = "риск-офф"
+                        else:
+                            macro_mode = "риск-он"
+                    except:
+                        pass
+
+                    # Проверка kill switch
+                    kill_switch, ks_note = check_kill_switch()
+
+                    # Разрешение противоречий
+                    resolution = []
+                    imp_rd = 0
+                    aplus_score = 0
+                    shadow_power = ""
+                    delta_buy = 0
+                    htf_dir = ""
+                    compass_dir = ""
+                    mm_dir = ""
+                    
+                    if impulse and fresh(impulse):
+                        try:
+                            imp_rd = int(impulse["readiness"]) if impulse["readiness"] else 0
+                        except:
+                            pass
+                    if aplus and fresh(aplus):
+                        try:
+                            aplus_score = int(aplus["layers"].split("|")[0]) if aplus["layers"] else 0
+                        except:
+                            pass
+                    if shadow and fresh(shadow):
+                        parts = shadow["layers"].split("|")
+                        if len(parts) >= 2:
+                            shadow_power = parts[1]
+                    if delta and fresh(delta):
+                        try:
+                            delta_buy = float(delta["layers"].split("|")[0])
+                        except:
+                            pass
+                    if htf and fresh(htf):
+                        if "вверх" in htf["layers"]:
+                            htf_dir = "вверх"
+                        elif "вниз" in htf["layers"]:
+                            htf_dir = "вниз"
+                    if compass and fresh(compass):
+                        if "Север" in compass["layers"]:
+                            compass_dir = "вверх"
+                        elif "Юг" in compass["layers"]:
+                            compass_dir = "вниз"
+                    if mm and fresh(mm):
+                        if "вверх" in mm["layers"]:
+                            mm_dir = "вверх"
+                        elif "вниз" in mm["layers"]:
+                            mm_dir = "вниз"
+
+                    # Итог разрешения
+                    conflict_note = ""
+                    direction_note = ""
+                    
+                    # Правило 1: Импульс + A+ + Тень
+                    if imp_rd >= 80 and aplus_score < 6 and shadow_power in ("сильная", "средняя"):
+                        conflict_note = "Момент вверх, структура против."
+                        direction_note = "Ложный пробой вверх → возврат → ждать закрепления."
+                    elif imp_rd >= 80 and aplus_score >= 6 and shadow_power == "слабая":
+                        conflict_note = "Момент и структура совпали."
+                        direction_note = "Истинный пробой вверх. Вход по A+."
+                    elif imp_rd >= 80 and aplus_score < 6 and shadow_power == "слабая":
+                        conflict_note = "Момент вверх, структура не подтверждает."
+                        direction_note = "Ждать A+ или откат к зоне."
+                    
+                    # Правило 2: Дельта + Импульс
+                    elif delta_buy >= 60 and imp_rd >= 50:
+                        conflict_note = "Дельта и Импульс — вверх."
+                        direction_note = "Давление покупателей. Ждать A+."
+                    elif delta_buy <= 40 and imp_rd >= 50:
+                        conflict_note = "Дельта вниз, Импульс вверх."
+                        direction_note = "Конфликт. Ждать."
+                    
+                    # Правило 3: HTF + A+
+                    elif htf_dir == "вверх" and aplus_score >= 6:
+                        conflict_note = "HTF и A+ — вверх."
+                        direction_note = "Подтверждение тренда. Вход по A+."
+                    elif htf_dir == "вниз" and aplus_score >= 6:
+                        conflict_note = "HTF вниз, A+ вверх."
+                        direction_note = "Конфликт. Структура против тренда. Ждать."
+                    
+                    # Правило 4: ММ + A+
+                    elif mm_dir == "вверх" and aplus_score < 6:
+                        conflict_note = "ММ набирает вверх, но A+ не готов."
+                        direction_note = "Ждать A+. ММ подтверждает направление."
+                    elif mm_dir == "вниз" and aplus_score >= 6:
+                        conflict_note = "ММ вниз, A+ вверх."
+                        direction_note = "Конфликт. Ждать."
+                    
+                    # Правило 5: Компас + Тень
+                    elif compass_dir == "вверх" and shadow_power in ("сильная", "средняя"):
+                        conflict_note = "Компас вверх, Тень сильная."
+                        direction_note = "Ловушка вверх. Ждать возврат."
+                    
+                    else:
+                        conflict_note = "Слои расходятся."
+                        direction_note = "Ждать. Нет единого сигнала."
+
+                    # Решение
+                    price_now = aplus["price"] if aplus else (impulse["price"] if impulse else "—")
+                    if blockers:
+                        decision = "❌ НЕ ВХОДИТЬ"
+                    else:
+                        decision = "✅ ВОЗМОЖЕН ВХОД (проверь зону)"
+
+                    text = (
+                        f"🧿 <b>ВЕРДИКТ АРХИТЕКТОРА</b>\n\n"
+                        f"<code>────────────────</code>\n\n"
+                        f"₿ BTC: ${price_now}\n\n"
+                        f"🔴 <b>Блокеры:</b>\n" + ("\n".join(f"• {b}" for b in blockers) if blockers else "• нет") + "\n\n"
+                        f"🟢 <b>Поддержка:</b>\n" + ("\n".join(f"• {s}" for s in support) if support else "• нет данных") + "\n\n"
+                        f"🎯 <b>Решение:</b> {decision}\n\n"
+                        f"🌐 <b>Макро:</b> {macro_mode if macro_mode else '—'}\n\n"
+                        f"🛡 <b>Kill switch:</b> {ks_note}\n\n"
+                        f"⚖️ <b>Разрешение:</b>\n"
+                        f"{conflict_note}\n"
+                        f"{direction_note}\n\n"
+                        f"📋 <b>Сценарии:</b>\n"
+                        f"• Пробой вверх + объём → ждать возврат, вход по A+\n"
+                        f"• Откат к зоне + объём → вход по системе\n"
+                        f"• Ничего → ждать\n\n"
+                        f"📐 <i>Чертёж: вердикт — карта решений, не команда.</i>"
+                    )
+                    send_tg(text, main_menu())
+            except Exception as e:
+                send_tg(f"🧿 Вердикт: ошибка — {e}", main_menu())
+
+
+        elif t == "📈 Статистика":
+            try:
+                import csv
+                from pathlib import Path as P
+                log_path = P.home() / "Desktop" / "signal_log.csv"
+                if not log_path.exists():
+                    send_tg("📈 Статистика: нет данных. Нажми кнопки анализа.", main_menu())
+                else:
+                    with open(log_path, "r", encoding="utf-8") as f:
+                        reader = csv.DictReader(f)
+                        rows = list(reader)
+
+                    # Собираем статистику по каждому сигналу
+                    stats = {}
+                    for row in rows:
+                        button = row.get("button", "")
+                        correct = row.get("correct", "")
+                        if not button or not correct or correct == "—":
+                            continue
+                        if button not in stats:
+                            stats[button] = {"total": 0, "win": 0, "sum_pct": 0.0}
+                        stats[button]["total"] += 1
+                        if correct == "✅":
+                            stats[button]["win"] += 1
+                        try:
+                            pct = float(row.get("result_30m", "0").replace("%", ""))
+                            stats[button]["sum_pct"] += pct
+                        except:
+                            pass
+
+                    if not stats:
+                        send_tg("📈 Статистика: нет завершённых сигналов.", main_menu())
+                    else:
+                        # Собираем общие метрики
+                        all_pcts = []
+                        for row in rows:
+                            if row.get("correct") and row.get("correct") != "—":
+                                try:
+                                    pct = float(row.get("result_30m", "0").replace("%", ""))
+                                    all_pcts.append(pct)
+                                except:
+                                    pass
+                        
+                        total_trades = len(all_pcts)
+                        wins = [p for p in all_pcts if p > 0]
+                        losses = [p for p in all_pcts if p < 0]
+                        
+                        winrate = len(wins) / total_trades * 100 if total_trades else 0
+                        avg_win = sum(wins) / len(wins) if wins else 0
+                        avg_loss = sum(losses) / len(losses) if losses else 0
+                        expectancy = (winrate / 100 * avg_win) + ((1 - winrate / 100) * avg_loss)
+                        
+                        # Profit factor
+                        gross_profit = sum(wins)
+                        gross_loss = abs(sum(losses))
+                        profit_factor = gross_profit / gross_loss if gross_loss > 0 else 0
+                        
+                        # Max drawdown
+                        equity = 0
+                        peak = 0
+                        max_dd = 0
+                        for p in all_pcts:
+                            equity += p
+                            if equity > peak:
+                                peak = equity
+                            dd = peak - equity
+                            if dd > max_dd:
+                                max_dd = dd
+                        
+                        # Sharpe (упрощённо)
+                        avg_pct = sum(all_pcts) / total_trades if total_trades else 0
+                        variance = sum((p - avg_pct) ** 2 for p in all_pcts) / total_trades if total_trades else 0
+                        std = variance ** 0.5
+                        sharpe = avg_pct / std if std > 0 else 0
+                        
+                        text_out = "📈 <b>СТАТИСТИКА</b>\n\n<code>────────────────</code>\n\n"
+                        text_out += f"Всего сделок: <b>{total_trades}</b>\n"
+                        text_out += f"Винрейт: <b>{winrate:.1f}%</b>\n"
+                        text_out += f"Матожидание: <b>{expectancy:+.3f}%</b>\n"
+                        text_out += f"Profit Factor: <b>{profit_factor:.2f}</b>\n"
+                        text_out += f"Max Drawdown: <b>{max_dd:.2f}%</b>\n"
+                        text_out += f"Sharpe: <b>{sharpe:.2f}</b>\n"
+                        text_out += f"Средний выигрыш: {avg_win:+.2f}%\n"
+                        text_out += f"Средний проигрыш: {avg_loss:+.2f}%\n\n"
+                        text_out += "📊 <b>По слоям:</b>\n"
+                        for button, s in sorted(stats.items(), key=lambda x: -x[1]["total"])[:5]:
+                            wr = int(s["win"] / s["total"] * 100) if s["total"] else 0
+                            avg = s["sum_pct"] / s["total"] if s["total"] else 0
+                            text_out += f"<b>{button}</b>: {s['total']} | {wr}% | {avg:+.2f}%\n"
+                        text_out += "\n📐 <i>Чертёж: статистика — зеркало системы.</i>"
+                        send_tg(text_out, main_menu())
+            except Exception as e:
+                send_tg(f"📈 Статистика: ошибка — {e}", main_menu())
+
+
+        elif t == "⚖️ Риск":
+            try:
+                import json
+                from pathlib import Path as P
+                cfg_path = P.home() / "Desktop" / "risk_config.json"
+                if not cfg_path.exists():
+                    send_tg("⚖️ Риск: risk_config.json не найден.", main_menu())
+                else:
+                    cfg = json.loads(cfg_path.read_text(encoding="utf-8"))
+                    deposit = cfg.get("deposit", 100)
+                    risk_pct = cfg.get("risk_percent", 5)
+                    max_lev = cfg.get("max_leverage", 10)
+                    risk_usd = deposit * risk_pct / 100
+
+                    # Получаем цену и зону A+
+                    r = okx_get("https://www.okx.com/api/v5/market/ticker?instId=BTC-USDT").json()
+                    price = float(r["data"][0]["last"])
+
+                    # Зона и стоп из A+ (упрощённо)
+                    entry = round(price * 0.995, 0)
+                    stop = round(entry * 0.99, 0)
+                    t1 = round(entry * 1.02, 0)
+                    t2 = round(entry * 1.04, 0)
+
+                    risk_per_btc = entry - stop
+                    if risk_per_btc <= 0:
+                        send_tg("⚖️ Риск: стоп выше входа. Проверь зону.", main_menu())
+                    else:
+                        # Размер позиции: риск $ / риск на BTC
+                        size_btc = risk_usd / risk_per_btc
+                        size_usd = size_btc * entry
+                        margin = size_usd / max_lev
+                        leverage = min(max_lev, size_usd / margin) if margin > 0 else max_lev
+
+                        rr = round((t1 - entry) / risk_per_btc, 2)
+
+                        send_tg(
+                            f"⚖️ <b>БЛОК РИСКА</b>\n\n"
+                            f"<code>────────────────</code>\n\n"
+                            f"💰 Депозит: ${deposit}\n"
+                            f"📊 Риск: {risk_pct}% = ${risk_usd:.2f}\n"
+                            f"⚡ Плечо: ≤ {max_lev}x\n\n"
+                            f"📈 <b>Расчёт позиции:</b>\n"
+                            f"Вход: ${entry:,.0f}\n"
+                            f"Стоп: ${stop:,.0f}\n"
+                            f"Цель 1: ${t1:,.0f}\n"
+                            f"Цель 2: ${t2:,.0f}\n\n"
+                            f"Размер: {size_btc:.5f} BTC (${size_usd:,.0f})\n"
+                            f"Маржа: ${margin:.2f}\n"
+                            f"Риск на BTC: ${risk_per_btc:,.0f}\n"
+                            f"R/R: 1:{rr}\n\n"
+                            f"💡 <i>Риск ≤ 5%. Стоп до входа. Не усредняй.</i>\n\n"
+                            f"📐 <i>Чертёж: сначала риск, потом вход.</i>",
+                            main_menu()
+                        )
+            except Exception as e:
+                send_tg(f"⚖️ Риск: ошибка — {e}", main_menu())
+
+
         elif t == "📊 Журнал сделок":
             try:
                 import json as _json
@@ -3521,6 +4036,11 @@ def process():
                     losses = [t for t in trades if t.get("pnl", 0) < 0]
                     total_pnl = sum(t.get("pnl", 0) for t in trades)
                     winrate = int(len(wins) / total * 100) if total else 0
+                    by_system_trades = [t for t in trades if t.get("by_system") is True]
+                    breakeven_trades = [t for t in trades if t.get("breakeven") is True]
+                    r_values = [t.get("result_r") for t in trades if t.get("result_r") is not None]
+                    avg_r = round(sum(r_values) / len(r_values), 2) if r_values else 0
+                    by_system_pct = int(len(by_system_trades) / total * 100) if total else 0
 
                     last5 = trades[-5:][::-1]
                     lines5 = []
@@ -3535,7 +4055,10 @@ def process():
                         f"📊 <b>ЖУРНАЛ СДЕЛОК</b>\n\n"
                         f"<code>────────────────</code>\n\n"
                         f"Всего сделок: <b>{total}</b>\n"
+                        f"По системе: <b>{len(by_system_trades)}</b> ({by_system_pct}%)\n"
+                        f"С безубытком: <b>{len(breakeven_trades)}</b>\n"
                         f"Винрейт: <b>{winrate}%</b>\n"
+                        f"Средний R: <b>{avg_r}</b>\n"
                         f"Общий PnL: <b>{total_pnl:+.2f}$</b>\n\n"
                         f"Последние {len(last5)}:\n{last_block}\n\n"
                         f"📐 <i>Чертёж: каждая сделка — в журнал.</i>",

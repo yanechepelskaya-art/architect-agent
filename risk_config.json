@@ -1,0 +1,7 @@
+{
+  "deposit": 100,
+  "risk_percent": 5,
+  "max_leverage": 10,
+  "max_daily_loss_percent": 3,
+  "max_consecutive_losses": 3
+}
