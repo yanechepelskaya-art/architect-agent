@@ -3,5 +3,5 @@ services:
     name: architect-agent
     env: python
     buildCommand: pip install -r requirements.txt
-    startCommand: python3 auto_watch.py
+    startCommand: python3 run_all.py
     plan: starter
