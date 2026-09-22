@@ -2627,6 +2627,26 @@ def process():
                         mm_note = "баланс"
                 except:
                     mm_note = "—"
+                # Логирование для часового прогноза
+                try:
+                    import csv as _csv
+                    import datetime as _dt
+                    from pathlib import Path as _P
+                    log_path = _P.home() / "Desktop" / "hourly_forecast_log.csv"
+                    direction = "вверх" if up else "вниз"
+                    with open(log_path, "a", newline="", encoding="utf-8") as _f:
+                        _w = _csv.writer(_f)
+                        _w.writerow([
+                            _dt.datetime.now().isoformat(),
+                            price,
+                            direction,
+                            round(price - p1, 0),
+                            round(price + p1, 0),
+                            "", "", ""
+                        ])
+                except Exception:
+                    pass
+
                 send_tg(
                     f"🕐 <b>ЧАСОВОЙ ПРОГНОЗ BTC</b>\n\n"
                     f"<code>────────────────</code>\n\n"

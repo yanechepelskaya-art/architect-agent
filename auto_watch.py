@@ -203,6 +203,13 @@ def check_verdict():
     except Exception as e:
         print("RESULTS_ERR", e)
 
+    # Автообновление результатов часового прогноза
+    try:
+        import update_hourly_results
+        update_hourly_results.update()
+    except Exception as e:
+        print("HOURLY_ERR", e)
+
     """Проверяет signal_log.csv и отправляет уведомление, если все блокеры сняты."""
     try:
         import csv, datetime
