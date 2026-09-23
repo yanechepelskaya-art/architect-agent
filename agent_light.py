@@ -2369,125 +2369,99 @@ def process():
                 score_layers = 0
                 layer_details = []
 
-                if prob_up is not None and prob_up >= 0.60:
-                    score_layers += 1
-                    layer_details.append("ML ✅")
+                # ML временно убран из подсчёта score
+
+                # === A+ по 7 слоям из training_data.csv (совпадает с бэктестом) ===
+                import csv as _csv
+                from pathlib import Path as _P
+
+                _td = _P.home() / "Desktop" / "training_data.csv"
+                row_last = None
+                if _td.exists():
+                    with open(_td, "r", encoding="utf-8") as _f:
+                        _rows = list(_csv.DictReader(_f))
+                        if _rows:
+                            row_last = _rows[-1]
+
+                if row_last is None:
+                    layer_details = ["нет данных"]
                 else:
-                    layer_details.append("ML ❌")
-
-                try:
-                    from pathlib import Path as P
-                    sensor_log = P.home() / "Desktop" / "sensor_log.csv"
-                    last_score = 0
-                    if sensor_log.exists():
-                        lines = sensor_log.read_text(encoding="utf-8").strip().split("\n")[-1:]
-                        if lines and len(lines[0].split(",")) >= 3:
-                            last_score = int(lines[0].split(",")[2])
-                    if last_score > -20:
-                        score_layers += 1
-                        layer_details.append(f"Сенсор ✅ ({last_score})")
-                    else:
-                        layer_details.append(f"Сенсор ❌ ({last_score})")
-                except:
-                    layer_details.append("Сенсор ❌")
-
-                # OI change из training_data.csv
-                try:
-                    import csv as _csv
-                    from pathlib import Path as _P
-                    _td = _P.home() / "Desktop" / "training_data.csv"
-                    oi_chg = 0.0
-                    if _td.exists():
-                        with open(_td, "r", encoding="utf-8") as _f:
-                            _rows = list(_csv.DictReader(_f))
-                            if _rows:
-                                oi_chg = float(_rows[-1].get("oi_change_5", 0))
-                    if oi_chg > 0.5:
-                        score_layers += 1
-                        layer_details.append(f"OI ✅ ({oi_chg:+.2f}%)")
-                    elif oi_chg < -0.5:
-                        layer_details.append(f"OI ❌ ({oi_chg:+.2f}%)")
-                    else:
-                        layer_details.append(f"OI ⚪ ({oi_chg:+.2f}%)")
-                except:
-                    layer_details.append("OI ❌")
-
-                try:
-                    rr_en = okx_get("https://www.okx.com/api/v5/market/candles?instId=BTC-USDT&bar=15m&limit=10")
-                    if rr_en and rr_en.status_code == 200:
-                        c_en = rr_en.json()["data"][::-1]
-                        rng = (float(c_en[-1][2]) - float(c_en[-1][3])) / float(c_en[-1][3]) * 100
-                        if rng > 0.15:
+                    # 1. OI change
+                    try:
+                        oi_chg = float(row_last.get("oi_change_5", 0))
+                        if oi_chg > 0.5:
                             score_layers += 1
-                            layer_details.append("Энергия ✅")
+                            layer_details.append(f"OI ✅ ({oi_chg:+.2f}%)")
                         else:
-                            layer_details.append("Энергия ❌")
-                except:
-                    layer_details.append("Энергия ❌")
+                            layer_details.append(f"OI ❌ ({oi_chg:+.2f}%)")
+                    except:
+                        layer_details.append("OI ❌")
 
-                try:
-                    if price < high * 0.995:
-                        score_layers += 1
-                        layer_details.append("Тень ✅")
-                    else:
-                        layer_details.append("Тень ❌")
-                except:
-                    layer_details.append("Тень ❌")
-
-                if abs(price - entry) / price < 0.01:
-                    score_layers += 1
-                    layer_details.append("Зона ✅")
-                else:
-                    layer_details.append("Зона ❌")
-
-                try:
-                    rr_vol = okx_get("https://www.okx.com/api/v5/market/candles?instId=BTC-USDT&bar=15m&limit=20")
-                    if rr_vol and rr_vol.status_code == 200:
-                        cv = rr_vol.json()["data"][::-1]
-                        vols = [float(c[5]) for c in cv]
-                        avg_v = sum(vols[:-1]) / max(1, len(vols[:-1]))
-                        if vols[-1] > avg_v:
+                    # 2. Объём
+                    try:
+                        v24 = float(row_last.get("vol24h", 0))
+                        if v24 > 3000:
                             score_layers += 1
-                            layer_details.append("Объём ✅")
+                            layer_details.append(f"Объём ✅ ({v24:.0f})")
                         else:
-                            layer_details.append("Объём ❌")
-                except:
-                    layer_details.append("Объём ❌")
+                            layer_details.append(f"Объём ❌ ({v24:.0f})")
+                    except:
+                        layer_details.append("Объём ❌")
 
-                try:
-                    if high * 0.995 > price:
-                        score_layers += 1
-                        layer_details.append("Ликвидации ✅")
-                    else:
-                        layer_details.append("Ликвидации ❌")
-                except:
-                    layer_details.append("Ликвидации ❌")
-
-                try:
-                    rr_tr = okx_get("https://www.okx.com/api/v5/market/candles?instId=BTC-USDT&bar=15m&limit=6")
-                    if rr_tr and rr_tr.status_code == 200:
-                        ct = rr_tr.json()["data"][::-1]
-                        closes_t = [float(c[4]) for c in ct]
-                        if closes_t[-1] > closes_t[0]:
+                    # 3. RSI
+                    try:
+                        rsi = float(row_last.get("rsi", 50))
+                        if rsi < 30 or rsi > 70:
                             score_layers += 1
-                            layer_details.append("Тренд ✅")
+                            layer_details.append(f"RSI ✅ ({rsi:.1f})")
                         else:
-                            layer_details.append("Тренд ❌")
-                except:
-                    layer_details.append("Тренд ❌")
+                            layer_details.append(f"RSI ❌ ({rsi:.1f})")
+                    except:
+                        layer_details.append("RSI ❌")
 
-                try:
-                    rr_im = okx_get("https://www.okx.com/api/v5/market/candles?instId=BTC-USDT&bar=15m&limit=6")
-                    if rr_im and rr_im.status_code == 200:
-                        ci = rr_im.json()["data"][::-1]
-                        highs_i = [float(c[2]) for c in ci]
-                        if highs_i[-1] > max(highs_i[:-1]):
+                    # 4. ATR
+                    try:
+                        atr = float(row_last.get("atr", 0))
+                        if atr > 50:
                             score_layers += 1
-                            layer_details.append("Импульс ✅")
+                            layer_details.append(f"ATR ✅ ({atr:.0f})")
                         else:
-                            layer_details.append("Импульс ❌")
-                except:
-                    layer_details.append("Импульс ❌")
+                            layer_details.append(f"ATR ❌ ({atr:.0f})")
+                    except:
+                        layer_details.append("ATR ❌")
+
+                    # 5. Фаза
+                    try:
+                        phase = row_last.get("phase", "")
+                        if phase in ("emanation", "flush"):
+                            score_layers += 1
+                            layer_details.append(f"Фаза ✅ ({phase})")
+                        else:
+                            layer_details.append(f"Фаза ❌ ({phase})")
+                    except:
+                        layer_details.append("Фаза ❌")
+
+                    # 6. Час
+                    try:
+                        h = int(row_last.get("hour", 0))
+                        if 8 <= h < 22:
+                            score_layers += 1
+                            layer_details.append(f"Час ✅ ({h})")
+                        else:
+                            layer_details.append(f"Час ❌ ({h})")
+                    except:
+                        layer_details.append("Час ❌")
+
+                    # 7. Дельта
+                    try:
+                        delta = float(row_last.get("delta", 0))
+                        if delta > 0:
+                            score_layers += 1
+                            layer_details.append(f"Дельта ✅ ({delta:+.0f})")
+                        else:
+                            layer_details.append(f"Дельта ❌ ({delta:+.0f})")
+                    except:
+                        layer_details.append("Дельта ❌")
 
                 squeeze_warn = ""
                 try:
@@ -2503,7 +2477,7 @@ def process():
                 except:
                     pass
 
-                if prob_up is not None and prob_up < 0.60:
+                if False:  # ML временно убран из блокеров
                     # Направление — по слоям, не по ML
                     trend_up = "Тренд ✅" in layer_details
                     impulse_up = "Импульс ✅" in layer_details
@@ -2541,52 +2515,30 @@ def process():
                         main_menu()
                     )
                 else:
+                    # A+ по слоям (без ML, без integral)
+                    if score_layers < 6:
+                        send_tg(
+                            f"🎯 A+ не подтверждён\n\n"
+                            f"Совпадение: {score_layers}/7\n"
+                            f"{'; '.join(layer_details)}",
+                            main_menu()
+                        )
+                        return
+
                     rr = round((t1 - entry) / (entry - stop), 1)
-                    ml_note = f"{int(prob_up*100)}%" if prob_up is not None else "—"
-
-                    try:
-                        from pathlib import Path as P
-                        sensor_log = P.home() / "Desktop" / "sensor_log.csv"
-                        last_score = 0
-                        if sensor_log.exists():
-                            lines = sensor_log.read_text(encoding="utf-8").strip().split("\n")[-1:]
-                            if lines and len(lines[0].split(",")) >= 3:
-                                last_score = int(lines[0].split(",")[2])
-                        if last_score <= -30:
-                            send_tg("🎯 A+ ЗАБЛОКИРОВАН СЕНСОРОМ\n\nСенсор давит вниз — A+ не пускает.", main_menu())
-                            return
-                    except:
-                        pass
-                    import datetime as _dt
-                    _h = _dt.datetime.now().hour
-                    if 10 <= _h < 22:
-                        w_ml, w_sensor, w_base = 0.55, 0.15, 0.30
-                    else:
-                        w_ml, w_sensor, w_base = 0.40, 0.20, 0.40
-
-                    integral = int(prob_up * 100 * w_ml + max(0, 50 + last_score) * w_sensor + 50 * w_base) if prob_up is not None else 50
+                    log_signal("A+", price, "", f"{score_layers}|{';'.join(layer_details)}|вверх")
 
                     send_tg(
                         f"🎯 <b>A+ СИГНАЛ АРХИТЕКТОРА</b>\n\n"
-                        f"<code>────────────────</code>\n\n"
-                        f"Индекс: {integral}/100\n"
+                        f"Совпадение: {score_layers}/7\n"
+                        f"{'; '.join(layer_details)}\n\n"
                         f"₿ BTC: ${price:,.2f}\n"
-                        f"Диапазон: ${low:,.0f} – ${high:,.0f}\n\n"
                         f"Зона входа: ${entry:,.0f}\n"
                         f"Стоп: ${stop:,.0f}\n"
                         f"Цель 1: ${t1:,.0f}\n"
-                        f"Цель 2: ${t2:,.0f}\n\n"
-                        f"Риск/прибыль: 1:{rr}\n"
-                        f"\n"
-                        f"🔮 <b>Прогноз:</b>\n"
-                        f"• Направление: вверх\n"
-                        f"• Вероятность: {ml_note}\n"
-                        f"• Триггер: пробой ${t1:,.0f} + объём\n"
-                        f"• Окно: 1–3 часа\n"
-                        f"ML: {ml_note}\n\n"
-                        f"💡 <i>Вход только после реакции на зону.</i>\n\n"
-                        f"📐 <i>Чертёж: один точный вход сильнее десяти нервных.</i>\n"
-                        f"📡 <a href='https://www.okx.com/ru/markets/prices/bitcoin-btc'>Источник: OKX</a>",
+                        f"Цель 2: ${t2:,.0f}\n"
+                        f"Риск/прибыль: 1:{rr}\n\n"
+                        f"📐 <i>Чертёж: один точный вход сильнее десяти нервных.</i>",
                         main_menu()
                     )
             except Exception as e:
@@ -3091,7 +3043,7 @@ def process():
                     last_pnls = [j["pnl"] for j in JOURNAL if j["pnl"] is not None]
                     if len(last_pnls) >= 2 and all(x < 0 for x in last_pnls[-2:]):
                         send_tg("🛡 Контроль риска: 2 стопа подряд. Вход запрещён.", main_menu())
-                    elif prob_up is not None and prob_up < 0.60:
+                    elif False:  # ML временно убран из блокеров
                         send_tg(f"🛡 Контроль риска: ML {int(prob_up*100)}% < 60%. Вход запрещён.", main_menu())
                     else:
                         r = okx_get(f"https://www.okx.com/api/v5/market/ticker?instId={coin}-USDT")
