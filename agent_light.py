@@ -3887,7 +3887,7 @@ def process():
                 from pathlib import Path as P
 
                 # Сначала пробуем считать по реальным сделкам
-                trades_path = Path("trades.json")
+                trades_path = P("trades.json")
                 real_trades = []
                 if trades_path.exists():
                     try:
