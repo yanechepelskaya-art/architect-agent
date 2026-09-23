@@ -2487,12 +2487,13 @@ def process():
                         direction = "вниз"
                     else:
                         direction = "боковик"
-                    log_signal("A+", price, "", f"{score_layers}|{';'.join(layer_details)}|{direction}")
+                    if score_layers >= 6:
+                        log_signal("A+", price, "", f"{score_layers}|{';'.join(layer_details)}|{direction}")
                     log_accuracy("A+", price, "up" if direction == "вверх" else "down")
                     send_tg(
                         f"🎯 <b>A+ СИГНАЛ ЗАБЛОКИРОВАН ML</b>\n\n"
                         f"<code>────────────────</code>\n\n"
-                        f"Совпадение: {score_layers}/10\n"
+                        f"Совпадение: {score_layers}/7\n"
                         f"Позиция: {'полная' if score_layers >= 6 else 'половинная' if score_layers >= 4 else 'не входить'}\n"
                         f"{'; '.join(layer_details)}\n\n"
                         f"Вероятность роста: {int(prob_up*100)}%\n"
