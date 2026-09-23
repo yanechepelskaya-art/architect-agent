@@ -3883,8 +3883,58 @@ def process():
 
         elif t == "📈 Статистика":
             try:
-                import csv
+                import csv, json
                 from pathlib import Path as P
+
+                # Сначала пробуем считать по реальным сделкам
+                trades_path = Path("trades.json")
+                real_trades = []
+                if trades_path.exists():
+                    try:
+                        data = json.loads(trades_path.read_text(encoding="utf-8"))
+                        real_trades = data.get("trades", [])
+                    except:
+                        real_trades = []
+
+                if real_trades:
+                    # Статистика по реальным сделкам
+                    total_trades = len(real_trades)
+                    wins = [t for t in real_trades if t.get("pnl", 0) > 0]
+                    losses = [t for t in real_trades if t.get("pnl", 0) < 0]
+                    winrate = len(wins) / total_trades * 100 if total_trades else 0
+
+                    total_pnl = sum(t.get("pnl", 0) for t in real_trades)
+                    gross_profit = sum(t.get("pnl", 0) for t in wins)
+                    gross_loss = abs(sum(t.get("pnl", 0) for t in losses))
+                    profit_factor = gross_profit / gross_loss if gross_loss > 0 else 0
+
+                    avg_win = sum(t.get("pnl", 0) for t in wins) / len(wins) if wins else 0
+                    avg_loss = sum(t.get("pnl", 0) for t in losses) / len(losses) if losses else 0
+                    expectancy = (winrate / 100 * avg_win) + ((1 - winrate / 100) * avg_loss)
+
+                    # R-метрики
+                    r_values = [t.get("result_r") for t in real_trades if t.get("result_r") is not None]
+                    avg_r = sum(r_values) / len(r_values) if r_values else 0
+
+                    # По системе / не по системе
+                    by_system = [t for t in real_trades if t.get("by_system") is True]
+                    by_system_pct = len(by_system) / total_trades * 100 if total_trades else 0
+
+                    text_out = "📈 <b>СТАТИСТИКА ПО СДЕЛКАМ</b>\n\n<code>────────────────</code>\n\n"
+                    text_out += f"Всего сделок: <b>{total_trades}</b>\n"
+                    text_out += f"По системе: <b>{len(by_system)}</b> ({by_system_pct:.0f}%)\n"
+                    text_out += f"Винрейт: <b>{winrate:.1f}%</b>\n"
+                    text_out += f"Матожидание: <b>{expectancy:+.2f}$</b>\n"
+                    text_out += f"Profit Factor: <b>{profit_factor:.2f}</b>\n"
+                    text_out += f"Средний R: <b>{avg_r:+.2f}</b>\n"
+                    text_out += f"Общий PnL: <b>{total_pnl:+.2f}$</b>\n"
+                    text_out += f"Средний выигрыш: {avg_win:+.2f}$\n"
+                    text_out += f"Средний проигрыш: {avg_loss:+.2f}$\n"
+                    text_out += "\n📐 <i>Чертёж: статистика по сделкам — честная картина.</i>"
+                    send_tg(text_out, main_menu())
+                    return
+
+                # Если реальных сделок нет — считаем по сигналам
                 log_path = P.home() / "Desktop" / "signal_log.csv"
                 if not log_path.exists():
                     send_tg("📈 Статистика: нет данных. Нажми кнопки анализа.", main_menu())
