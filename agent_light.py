@@ -2504,8 +2504,17 @@ def process():
                     pass
 
                 if prob_up is not None and prob_up < 0.60:
-                    log_signal("A+", price, "", f"{score_layers}|{';'.join(layer_details)}|{'вверх' if prob_up and prob_up >= 0.60 else 'вниз'}")
-                    log_accuracy("A+", price, "up" if prob_up >= 0.60 else "down")
+                    # Направление — по слоям, не по ML
+                    trend_up = "Тренд ✅" in layer_details
+                    impulse_up = "Импульс ✅" in layer_details
+                    if trend_up and impulse_up:
+                        direction = "вверх"
+                    elif not trend_up and not impulse_up:
+                        direction = "вниз"
+                    else:
+                        direction = "боковик"
+                    log_signal("A+", price, "", f"{score_layers}|{';'.join(layer_details)}|{direction}")
+                    log_accuracy("A+", price, "up" if direction == "вверх" else "down")
                     send_tg(
                         f"🎯 <b>A+ СИГНАЛ ЗАБЛОКИРОВАН ML</b>\n\n"
                         f"<code>────────────────</code>\n\n"
