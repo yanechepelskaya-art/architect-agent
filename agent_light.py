@@ -2375,7 +2375,7 @@ def process():
                 import csv as _csv
                 from pathlib import Path as _P
 
-                _td = _P.home() / "Desktop" / "training_data.csv"
+                _td = _P(__file__).parent / "training_data_snapshot.csv" if "__file__" in dir() else _P.home() / "Desktop" / "training_data.csv"
                 row_last = None
                 if _td.exists():
                     with open(_td, "r", encoding="utf-8") as _f:
