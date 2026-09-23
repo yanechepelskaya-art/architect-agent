@@ -5,7 +5,7 @@ import time
 import requests
 from datetime import datetime
 
-TOKEN = "8900618226:AAHvlytv83BqdhCuapsvbNDLAkPSyW1ZWyU"
+TOKEN = "8900618226:AAEyfZIBKiazChAf7Bfl19nLO708Zm13Ass"
 MODE = "virtual"  # "virtual" или "real"
 CHAT_ID = "870512243"
 

@@ -6,7 +6,7 @@ from sklearn.ensemble import RandomForestClassifier
 import numpy as np
 from datetime import datetime
 
-TOKEN = "8900618226:AAHvlytv83BqdhCuapsvbNDLAkPSyW1ZWyU"
+TOKEN = "8900618226:AAEyfZIBKiazChAf7Bfl19nLO708Zm13Ass"
 CHAT_ID = "870512243"
 last_update_id = 0
 user_state = {}
