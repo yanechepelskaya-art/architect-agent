@@ -1,3 +1,14 @@
 {
-  "trades": []
+  "trades": [
+    {
+      "side": "long",
+      "entry": 85874,
+      "exit": 86200,
+      "pnl": 5.2,
+      "by_system": true,
+      "breakeven": true,
+      "risk": 3.0,
+      "result_r": 1.73
+    }
+  ]
 }
