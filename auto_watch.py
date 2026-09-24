@@ -359,23 +359,36 @@ def check():
         r_fr = requests.get("https://www.okx.com/api/v5/public/funding-rate?instId=BTC-USDT-SWAP", timeout=10)
         fr_data = r_fr.json()["data"][0]
         fr_val = float(fr_data["fundingRate"]) * 100
-        if abs(fr_val) >= 0.05 and last_funding_notified != "yes":
+        yearly = fr_val * 3 * 365  # годовых, %
+        if abs(yearly) >= 20 and last_funding_notified != "yes":
+            if yearly >= 30:
+                level = "🔴 КРАСНЫЙ"
+                status = "ПЕРЕГРЕВ"
+            elif yearly >= 20:
+                level = "🟡 ЖЁЛТЫЙ"
+                status = "ВНИМАНИЕ"
+            else:
+                level = "⚪"
+                status = "—"
+
             if fr_val > 0:
                 crowd = "в лонгах"
                 risk = "вынос вниз"
             else:
                 crowd = "в шортах"
                 risk = "вынос вверх"
+
             send_tg(
-                f"⚡ <b>FUNDING-ПЕРЕКОС</b>\n\n"
+                f"{level} <b>FUNDING ALERT</b>\n\n"
                 f"₿ BTC: ${price:,.0f}\n"
-                f"Funding: {fr_val:+.4f}%\n"
+                f"Funding: {yearly:+.1f}% годовых\n"
+                f"Статус: {status}\n\n"
                 f"Толпа: {crowd}\n"
                 f"Риск: {risk}\n\n"
                 f"📐 Топливо для выноса."
             )
             last_funding_notified = "yes"
-        elif abs(fr_val) < 0.03:
+        elif abs(yearly) < 15:
             last_funding_notified = None
     except Exception:
         pass
