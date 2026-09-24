@@ -4,6 +4,7 @@ os.environ["HTTP_PROXY"] = "socks5://127.0.0.1:10808"
 import time
 import requests
 from datetime import datetime
+import json
 
 TOKEN = os.getenv("BOT_TOKEN") or "8900618226:AAEXdg5Q1V7lnFLJ0fFfOu56sEMN-hbnFFQ"
 MODE = "virtual"  # "virtual" или "real"
@@ -32,6 +33,7 @@ last_move_notified = None
 last_funding_notified = None
 last_usde_notified = None
 last_wlfi_notified = None
+last_macro_notified = {}
 trade_price = None
 trade_time = None
 
@@ -455,6 +457,37 @@ def check():
             last_wlfi_notified = "yes"
         elif wlfi_chg > -2:
             last_wlfi_notified = None
+    except Exception:
+        pass
+
+    # Macro calendar check
+    global last_macro_notified
+    try:
+        from pathlib import Path as _P
+        macro_path = _P(__file__).parent / "macro_events.json"
+        if macro_path.exists():
+            with open(macro_path, "r", encoding="utf-8") as _f:
+                macro_events = json.load(_f)
+            now = datetime.now()
+            for ev in macro_events:
+                ev_key = ev["date"] + "|" + ev["name"]
+                if last_macro_notified.get(ev_key):
+                    continue
+                try:
+                    ev_time = datetime.strptime(ev["date"], "%Y-%m-%d %H:%M")
+                except Exception:
+                    continue
+                delta_min = (ev_time - now).total_seconds() / 60
+                if 25 <= delta_min <= 35:
+                    send_tg(
+                        f"{chr(0x1F7E1)} <b>MACRO ALERT</b>\n\n"
+                        f"Event: {ev['name']}\n"
+                        f"Time: {ev['date']}\n"
+                        f"T-minus: {int(delta_min)} min\n\n"
+                        f"Action: avoid positions.\n"
+                        f"Risk: sharp move."
+                    )
+                    last_macro_notified[ev_key] = True
     except Exception:
         pass
 
