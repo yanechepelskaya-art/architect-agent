@@ -31,6 +31,7 @@ last_direction = None
 last_move_notified = None
 last_funding_notified = None
 last_usde_notified = None
+last_wlfi_notified = None
 trade_price = None
 trade_time = None
 
@@ -422,6 +423,38 @@ def check():
             last_usde_notified = "yes"
         elif abs(usde_dev) < 0.2:
             last_usde_notified = None
+    except Exception:
+        pass
+
+    # WLFI check
+    global last_wlfi_notified
+    try:
+        r_wlfi = requests.get("https://api.binance.com/api/v3/ticker/24hr?symbol=WLFIUSDT", timeout=10)
+        wlfi_data = r_wlfi.json()
+        wlfi_chg = float(wlfi_data["priceChangePercent"])
+        wlfi_price = float(wlfi_data["lastPrice"])
+        if wlfi_chg <= -5 and last_wlfi_notified != "yes":
+            if wlfi_chg <= -10:
+                level = "🔴"
+                status = "STRESS"
+            elif wlfi_chg <= -5:
+                level = "🟡"
+                status = "WARNING"
+            else:
+                level = "-"
+                status = "-"
+            send_tg(
+                f"{level} <b>WLFI ALERT</b>\n\n"
+                f"WLFI: {wlfi_chg:+.2f}% 24h\n"
+                f"Price: ${wlfi_price:.4f}\n"
+                f"Status: {status}\n\n"
+                f"Holders exiting WLFI.\n"
+                f"Risk: early BTC signal.\n"
+                f"Action: watch BTC. Possible dump."
+            )
+            last_wlfi_notified = "yes"
+        elif wlfi_chg > -2:
+            last_wlfi_notified = None
     except Exception:
         pass
 
