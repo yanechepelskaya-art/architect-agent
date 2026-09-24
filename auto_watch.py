@@ -30,6 +30,7 @@ last_phase = None
 last_direction = None
 last_move_notified = None
 last_funding_notified = None
+last_usde_notified = None
 trade_price = None
 trade_time = None
 
@@ -390,6 +391,37 @@ def check():
             last_funding_notified = "yes"
         elif abs(yearly) < 15:
             last_funding_notified = None
+    except Exception:
+        pass
+
+    # USDe check
+    global last_usde_notified
+    try:
+        r_usde = requests.get("https://api.binance.com/api/v3/ticker/price?symbol=USDEUSDT", timeout=10)
+        usde_price = float(r_usde.json()["price"])
+        usde_dev = (usde_price - 1.0) * 100
+        if abs(usde_dev) >= 0.5 and last_usde_notified != "yes":
+            if abs(usde_dev) >= 1.0:
+                level = "🔴 КРАСНЫЙ"
+                status = "СТРЕСС"
+            elif abs(usde_dev) >= 0.5:
+                level = "🟡 ЖЁЛТЫЙ"
+                status = "ВНИМАНИЕ"
+            else:
+                level = "⚪"
+                status = "-"
+            send_tg(
+                f"{level} <b>USDE ALERT</b>\n\n"
+                f"USDe: ${usde_price:.4f}\n"
+                f"Deviation: {usde_dev:+.2f}%\n"
+                f"Status: {status}\n\n"
+                f"📐 Stablecoin unpegging.\n"
+                f"Risk: liquidation cascade.\n"
+                f"Action: do not use USDe as collateral."
+            )
+            last_usde_notified = "yes"
+        elif abs(usde_dev) < 0.2:
+            last_usde_notified = None
     except Exception:
         pass
 
