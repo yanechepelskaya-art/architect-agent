@@ -32,7 +32,7 @@ last_direction = None
 last_move_notified = None
 last_funding_notified = None
 last_usde_notified = None
-last_wlfi_notified = None
+last_token_notified = {}
 last_macro_notified = {}
 trade_price = None
 trade_time = None
@@ -428,37 +428,33 @@ def check():
     except Exception:
         pass
 
-    # WLFI check
-    global last_wlfi_notified
-    try:
-        r_wlfi = requests.get("https://api.binance.com/api/v3/ticker/24hr?symbol=WLFIUSDT", timeout=10)
-        wlfi_data = r_wlfi.json()
-        wlfi_chg = float(wlfi_data["priceChangePercent"])
-        wlfi_price = float(wlfi_data["lastPrice"])
-        if wlfi_chg <= -5 and last_wlfi_notified != "yes":
-            if wlfi_chg <= -10:
-                level = "🔴"
-                status = "STRESS"
-            elif wlfi_chg <= -5:
-                level = "🟡"
-                status = "WARNING"
-            else:
-                level = "-"
-                status = "-"
-            send_tg(
-                f"{level} <b>WLFI ALERT</b>\n\n"
-                f"WLFI: {wlfi_chg:+.2f}% 24h\n"
-                f"Price: ${wlfi_price:.4f}\n"
-                f"Status: {status}\n\n"
-                f"Holders exiting WLFI.\n"
-                f"Risk: early BTC signal.\n"
-                f"Action: watch BTC. Possible dump."
-            )
-            last_wlfi_notified = "yes"
-        elif wlfi_chg > -2:
-            last_wlfi_notified = None
-    except Exception:
-        pass
+    # Related tokens check
+    global last_token_notified
+    for _sym, _name in [("WLFIUSDT", "WLFI"), ("TRUMPUSDT", "TRUMP"), ("MELANIAUSDT", "MELANIA")]:
+        try:
+            r_tok = requests.get(f"https://api.binance.com/api/v3/ticker/24hr?symbol={_sym}", timeout=10)
+            tok_data = r_tok.json()
+            tok_chg = float(tok_data["priceChangePercent"])
+            tok_price = float(tok_data["lastPrice"])
+            key = _name
+            if tok_chg <= -5 and last_token_notified.get(key) != "yes":
+                if tok_chg <= -10:
+                    level = chr(0x1F534)
+                else:
+                    level = chr(0x1F7E1)
+                send_tg(
+                    f"{level} <b>{_name} ALERT</b>\n\n"
+                    f"{_name}: {tok_chg:+.2f}% 24h\n"
+                    f"Price: ${tok_price:.4f}\n\n"
+                    f"Holders exiting {_name}.\n"
+                    f"Risk: early BTC signal.\n"
+                    f"Action: watch BTC. Possible dump."
+                )
+                last_token_notified[key] = "yes"
+            elif tok_chg > -2:
+                last_token_notified[key] = None
+        except Exception:
+            pass
 
     # Macro calendar check
     global last_macro_notified
@@ -524,7 +520,6 @@ def check():
                     f"{pulse_note}\n\n"
                     f"📐 Вход — только по сигналу A+."
                 )
-        last_phase = current_phase
         last_phase = current_phase
 
     if aplus and last_notified != "aplus" and last_notified != "trade":
@@ -634,9 +629,27 @@ def check():
             )
             last_notified = "breakeven"
 
+_last_error_notified = 0
+
 if __name__ == "__main__":
-    send_tg("🔔 <b>Автономный режим V2 запущен</b>\n\nСлежу за зоной $" + f"{ZONE:,}" + " + объёмом")
+    send_tg("\U0001F514 <b>Autonomous mode V2 started</b>\n\nWatching zone $" + f"{ZONE:,}" + " + volume")
     while True:
-        check()
-        check_verdict()
+        try:
+            check()
+            check_verdict()
+        except Exception as _e:
+            _now = time.time()
+            try:
+                with open("auto_watch_error.log", "a", encoding="utf-8") as _f:
+                    _f.write(f"{datetime.now()}: {_e}\n")
+            except Exception:
+                pass
+            if _now - _last_error_notified > 3600:
+                try:
+                    send_tg(f"\u26A0\uFE0F <b>auto_watch error</b>\n\n{_e}")
+                except Exception:
+                    pass
+                _last_error_notified = _now
+            time.sleep(60)
+            continue
         time.sleep(CHECK_INTERVAL)
