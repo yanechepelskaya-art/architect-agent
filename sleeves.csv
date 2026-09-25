@@ -1,7 +1,33 @@
-sleeve,signals,winrate,expectancy,status
-A+ 6/7,35,60.0%,+0.344%,active
-A+ 4-5,394,16.8%,-0.244%,disabled
-impulse,591,19.1%,-0.256%,disabled
-compression,5264,10.6%,-0.289%,disabled
-emanation,60,43.3%,+0.116%,review
-flush,18,72.2%,+0.472%,review
+sleeve,signals,winrate,expectancy,status,note
+A+ 6/7,35,60.0%,+0.344%,active,train only, test 0 sig
+A+ 4-5,394,16.8%,-0.244%,disabled,negative OOS
+vol24h_3000,4776,11.1%,-0.188%,disabled,negative OOS
+vol24h_5000,4284,10.3%,-0.193%,disabled,negative OOS
+vol24h_8000,1636,7.5%,-0.197%,disabled,negative OOS
+funding_00005,3808,11.3%,-0.183%,disabled,negative OOS
+funding_0001,0,0%,0%,review,no signals in data
+delta_0,2448,10.2%,-0.190%,disabled,negative OOS
+delta_5,1298,10.8%,-0.187%,disabled,negative OOS
+delta_10,833,10.9%,-0.191%,disabled,negative OOS
+delta_-5,1393,11.0%,-0.222%,disabled,negative OOS
+rsi_25,63,27.0%,-0.132%,disabled,negative OOS
+rsi_30,173,19.7%,-0.128%,disabled,negative OOS
+rsi_35,451,18.2%,-0.140%,disabled,negative OOS
+rsi_65,545,10.3%,-0.230%,disabled,negative OOS
+rsi_70,252,10.7%,-0.258%,disabled,negative OOS
+rsi_75,117,8.5%,-0.297%,disabled,negative OOS
+hour_0_8,2083,7.4%,-0.199%,disabled,negative OOS
+hour_8_16,1503,8.4%,-0.193%,review,test +0.043% weak
+hour_16_24,1502,18.4%,-0.167%,disabled,negative OOS
+pc5_0.5,55,29.1%,-0.054%,disabled,negative OOS
+pc5_1,13,53.8%,+0.163%,review,train only, test 6 sig
+oi5_0.5,82,41.5%,-0.027%,disabled,negative OOS
+oi5_1,20,55.0%,+0.196%,review,train only, test 2 sig
+oi5_-0.5,148,20.9%,-0.185%,disabled,negative OOS
+ATR,-,-,-,disabled,data invalid, rebuild needed
+CVD,-,-,-,review,collecting
+LongShort,-,-,-,review,collecting
+HTF,-,-,-,review,collecting
+Тень,-,-,-,review,collecting
+Импульс,-,-,-,review,collecting
+Компас,-,-,-,review,collecting
