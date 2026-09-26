@@ -4,12 +4,19 @@ __pycache__/
 *.pyo
 *.log
 
-# Backups
+# Backups (все варианты)
 *.bak
 *.bak_*
 *.backup
 *.backup_*
-backup_*/
+*_backup*.py
+agent_light.py.*
+agent_light_backup*.py
+auto_watch.py.*
+auto_watch_backup*.py
+collect_data.py.*
+collect_data_backup*.py
+sideways_analysis.py.*
 
 # System
 .DS_Store
@@ -30,3 +37,14 @@ Photo/
 
 # Одноразовые
 50
+
+# Журналы и csv-логи
+accuracy_log.csv
+agent.log
+agent_light.log
+auto_watch.log
+collect.log
+collect_data.log
+dashboard.log
+webapp.log
+daily_pnl.json
