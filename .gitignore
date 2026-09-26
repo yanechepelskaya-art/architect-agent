@@ -48,3 +48,7 @@ collect_data.log
 dashboard.log
 webapp.log
 daily_pnl.json
+architect.py
+architect_light.py
+hourly_forecast_log.csv
+paper_trades.db
