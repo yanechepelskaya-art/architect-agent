@@ -1,0 +1,32 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.log
+
+# Backups
+*.bak
+*.bak_*
+*.backup
+*.backup_*
+backup_*/
+
+# System
+.DS_Store
+.localized
+
+# Data (large)
+trades_*.xlsx
+*.tar.gz
+*.db
+
+# IDE
+.idea/
+.vscode/
+
+# Photos
+Photo/
+*.png
+
+# Одноразовые
+50
