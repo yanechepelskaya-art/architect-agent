@@ -52,3 +52,36 @@ architect.py
 architect_light.py
 hourly_forecast_log.csv
 paper_trades.db
+
+# Устаревшие
+architect.py
+architect_light.py
+architect.py.save
+architect.pyc^c
+architect_trades_*.xlsx
+
+# Бэкапы
+backup_*/
+*_backup_*.json
+btc_data_backup_*.csv
+
+# Логи
+sensor_log.csv
+shadow_log.csv
+signal_log.csv
+collect.pid
+
+# Большие модели
+lstm_model.pt
+phase_model_v2.pkl
+
+# Данные — не критичны для репо
+btc_data.csv
+btc_data_v2.csv
+btc_data_v3.csv
+btc_data_features.csv
+btc_data_labeled.csv
+training_data.csv
+training_data_clean.csv
+train_data.csv
+test_data.csv
