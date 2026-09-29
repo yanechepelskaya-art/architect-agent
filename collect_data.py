@@ -63,16 +63,19 @@ def get_cvd():
 def get_long_short():
     try:
         r = requests.get(
-            "https://fapi.binance.com/futures/data/globalLongShortAccountRatio?symbol=BTCUSDT&period=1h&limit=1",
+            "https://www.okx.com/api/v5/rubik/stat/contracts/long-short-account-ratio?ccy=BTC&period=1H",
             timeout=10
         )
         data = r.json()
-        if not data:
+        if not data or data.get("code") != "0" or not data.get("data"):
             return None
-        item = data[0]
-        long_acc = float(item.get("longAccount", 0)) * 100
-        short_acc = float(item.get("shortAccount", 0)) * 100
-        return (long_acc, short_acc)
+        item = data["data"][0]
+        ratio = float(item[1])
+        if ratio <= 0:
+            return None
+        long_pct = ratio / (1 + ratio) * 100
+        short_pct = 100 - long_pct
+        return (round(long_pct, 2), round(short_pct, 2))
     except Exception:
         return None
 

@@ -176,3 +176,11 @@
 **Решение:**
 - Не трогать сейчас.
 - Позже переписать Delta через trades.
+
+## 17. Long/Short — переведён на OKX (29.09)
+
+**Дата:** 29.09.2026
+**Событие:** Binance LS — 451 (restricted location).
+**Решение:** переписан на OKX.
+**Результат:** OKX — 200. long_pct=56.14, short_pct=43.86.
+**Файл:** collect_data.py — get_long_short.
