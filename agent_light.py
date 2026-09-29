@@ -2709,7 +2709,9 @@ def process():
 
                 import datetime
                 import pickle
-                now = datetime.datetime.now().strftime("%H:%M")
+                now_utc = datetime.datetime.now()
+                now_msk = now_utc + datetime.timedelta(hours=3)
+                now = f"{now_utc.strftime('%H:%M')} UTC ({now_msk.strftime('%H:%M')} MSK)"
                 try:
                     with open("/Users/yananechepelskaya/Desktop/ml_model.pkl", "rb") as f:
                         model = pickle.load(f)
