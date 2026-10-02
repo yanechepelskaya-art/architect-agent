@@ -1,26 +1,12 @@
 import csv
 from datetime import datetime
+from atr import get_atr_okx
 
 INPUT = "btc_data_v3.csv"
 OUTPUT = "training_data_snapshot.csv"
 
-# ATR ФИКТИВНЫЙ: вычислен из high24h - low24h, не свечи.
-# TODO: переделать через OHLC candles OKX.
-def calculate_atr(highs, lows, closes, period=14):
-    if len(closes) < period + 1:
-        return 0
-    trs = []
-    for i in range(1, len(closes)):
-        tr = max(
-            highs[i] - lows[i],
-            abs(highs[i] - closes[i-1]),
-            abs(lows[i] - closes[i-1])
-        )
-        trs.append(tr)
-    atr = sum(trs[:period]) / period
-    for i in range(period, len(trs)):
-        atr = (atr * (period - 1) + trs[i]) / period
-    return round(atr, 2)
+# ATR — теперь через atr.py (Уайлдер 14, OHLC OKX 1H).
+# get_atr_okx() вызывается один раз в main() — ATR_VALUE.
 
 def calculate_rsi(prices, period=14):
     if len(prices) < period + 1:
@@ -54,6 +40,8 @@ def detect_phase(chg_15):
     return "flat"
 
 def main():
+    atr_value = get_atr_okx()
+    print(f"ATR (OKX 1H): {atr_value}")
     rows = []
     with open(INPUT, "r", encoding="utf-8") as f:
         for r in csv.DictReader(f):
@@ -70,12 +58,10 @@ def main():
 
         try:
             prices = [float(x["price"]) for x in window]
-            highs = [float(x["high24h"]) for x in window]
-            lows = [float(x["low24h"]) for x in window]
             ois = [float(x["oi"]) for x in window]
 
             rsi = calculate_rsi(prices)
-            atr = calculate_atr(highs, lows, prices)
+            atr = atr_value
 
             price_now = float(r["price"])
             price_5 = float(rows[i-5]["price"]) if i >= 5 else price_now

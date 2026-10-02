@@ -5,6 +5,7 @@ import requests, json, time
 from sklearn.ensemble import RandomForestClassifier
 import numpy as np
 from datetime import datetime
+from atr import get_atr_okx
 
 TOKEN = os.getenv("BOT_TOKEN") or "8900618226:AAEXdg5Q1V7lnFLJ0fFfOu56sEMN-hbnFFQ"
 CHAT_ID = "870512243"
@@ -717,7 +718,7 @@ def process():
                     f"👁 <i>Тень: {'активна — фильтр совпадает' if dist_down < dist_up else 'слабая'}.</i>\n"
                     f"⏱ <i>Окно теста: 1–3 часа.</i>\n"
                     f"⚖ <i>Зона сильнее: {'верхняя' if dist_down > dist_up else 'нижняя'}.</i>\n"
-                    f"🤖 <i>ML: {liq_ml}% — {'слабый, не ставить глубокие лимитки вниз' if liq_ml < 55 else 'умеренный, можно работать по зонам'}.</i>\n"
+                    ""
                     f"🔄 <i>Адаптация: если зона не протестирована за 8 часов — пересмотри лимитки.</i>\n\n"
                     f"💡 <i>Не входи до снятия ликвидности. Жди возврат.</i>\n\n"
                     f"📐 <i>Чертёж: маркетмейкер охотится за стопами.</i>\n"
@@ -1790,19 +1791,7 @@ def process():
                 else:
                     pulse = "слабый"
 
-                try:
-                    r_atr = okx_get("https://www.okx.com/api/v5/market/candles?instId=BTC-USDT&bar=15m&limit=14")
-                    if r_atr and r_atr.status_code == 200:
-                        ca = r_atr.json()["data"][::-1]
-                        trs = []
-                        for i in range(1, len(ca)):
-                            h = float(ca[i][2]); l = float(ca[i][3]); pc = float(ca[i-1][4])
-                            trs.append(max(h-l, abs(h-pc), abs(l-pc)))
-                        atr = sum(trs) / len(trs)
-                    else:
-                        atr = 0
-                except:
-                    atr = 0
+                atr = get_atr_okx(bar="15m", period=14) or 0
 
                 if price > high * 0.99:
                     state = "🐟 Агрессивная вверх"
@@ -2557,7 +2546,7 @@ def process():
                 rr = okx_get("https://www.okx.com/api/v5/market/candles?instId=BTC-USDT&bar=5m&limit=36")
                 cd = rr.json()["data"][::-1]
                 closes = [float(c[4]) for c in cd]
-                atr = np.mean([float(c[2])-float(c[3]) for c in cd[-12:]])
+                atr = get_atr_okx(bar="5m", period=12) or 0
                 p1 = atr
                 p5 = atr * 2.3
                 p8 = atr * 3.0
