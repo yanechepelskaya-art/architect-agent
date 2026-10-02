@@ -86,3 +86,4 @@ training_data_clean.csv
 train_data.csv
 test_data.csv
 render_agent/
+training_data_snapshot.csv
