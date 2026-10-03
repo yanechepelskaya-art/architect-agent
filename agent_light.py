@@ -519,8 +519,8 @@ def process():
                 pct = (price - chg) / chg * 100 if chg else 0
                 high = float(d["data"][0]["high24h"])
                 low = float(d["data"][0]["low24h"])
-                vol = float(d["data"][0]["vol24h"])
-                vol_str = f"${vol/1e6:,.1f}M" if vol > 1e6 else f"${vol/1e3:,.0f}K"
+                vol = float(d["data"][0]["vol24h"]) * float(d["data"][0]["last"])
+                vol_str = f"${vol/1e9:,.1f}B" if vol > 1e9 else f"${vol/1e6:,.1f}M"
                 if pct > 1:
                     state = "🟢 Эманация"
                     advice = "Импульс вверх. Жди откат к поддержке."
@@ -551,10 +551,10 @@ def process():
                 r = okx_get("https://www.okx.com/api/v5/market/ticker?instId=BTC-USDT")
                 d = r.json()
                 price = float(d["data"][0]["last"])
-                vol = float(d["data"][0]["vol24h"])
+                vol = float(d["data"][0]["vol24h"]) * float(d["data"][0]["last"])
                 change = float(d["data"][0].get("open24h", price))
                 pct = (price - change) / change * 100 if change else 0
-                vol_str = f"${vol/1e6:,.1f}M" if vol > 1e6 else f"${vol:,.0f}"
+                vol_str = f"${vol/1e9:,.1f}B" if vol > 1e9 else f"${vol/1e6:,.1f}M"
                 if score <= -60:
                     emoji = "🔴"
                     sense = "Продавцы контролируют. Не ловить дно. Ждать разрядки."
@@ -945,7 +945,7 @@ def process():
                 r = okx_get("https://www.okx.com/api/v5/market/ticker?instId=BTC-USDT").json()
                 d = r["data"][0]
                 price = float(d["last"])
-                vol = float(d["vol24h"])
+                vol = float(d["vol24h"]) * float(d["last"])
                 chg = (price - float(d["open24h"])) / float(d["open24h"]) * 100
                 if chg > 2:
                     macro = "Риск-аппетит высокий"
@@ -953,9 +953,9 @@ def process():
                     macro = "Бегство в качество"
                 else:
                     macro = "Нейтральный фон"
-                if vol > 6_000_000:
+                if vol > 10_000_000_000:
                     liq = "Ликвидность высокая"
-                elif vol > 3_000_000:
+                elif vol > 5_000_000_000:
                     liq = "Ликвидность средняя"
                 else:
                     liq = "Ликвидность низкая"
