@@ -93,9 +93,11 @@ def main():
                 layers += 1
 
             if layers >= 5:
-                future_1 = float(rows[i+1]["close"]) if i+1 < len(rows) else close
-                future_4 = float(rows[i+4]["close"]) if i+4 < len(rows) else close
-                future_24 = float(rows[i+24]["close"]) if i+24 < len(rows) else close
+                if i + 24 >= len(closes):
+                    continue
+                future_1 = closes[i+1]
+                future_4 = closes[i+4]
+                future_24 = closes[i+24]
 
                 signals.append({
                     "time": row["time"],
