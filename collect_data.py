@@ -48,7 +48,7 @@ def get_last_candle():
     if not d or "data" not in d or not d["data"]:
         return None
     c = d["data"][0]
-    return {"open": float(c[1]), "close": float(c[4])}
+    return {"open": float(c[1]), "high": float(c[2]), "low": float(c[3]), "close": float(c[4])}
 
 def get_delta():
     d = okx_get("https://www.okx.com/api/v5/market/candles?instId=BTC-USDT&bar=5m&limit=2")
@@ -182,7 +182,7 @@ def init_file():
     try:
         with open(FILE, "x", newline="") as f:
             w = csv.writer(f)
-            w.writerow(["time", "price", "vol24h", "high24h", "low24h", "open", "close", "oi", "funding", "delta", "cvd_24h", "long_pct", "short_pct", "htf_dir", "htf_strength", "ten_dir", "ten_strength", "impulse", "impulse_ready", "compass"])
+            w.writerow(["time", "price", "vol24h", "high24h", "low24h", "open", "high", "low", "close", "oi", "funding", "delta", "cvd_24h", "long_pct", "short_pct", "htf_dir", "htf_strength", "ten_dir", "ten_strength", "impulse", "impulse_ready", "compass"])
     except FileExistsError:
         pass
 
@@ -205,6 +205,8 @@ def collect():
             datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
             t["price"], t["vol24h"], t["high24h"], t["low24h"],
             _candle.get("open", 0) if _candle else 0,
+            _candle.get("high", 0) if _candle else 0,
+            _candle.get("low", 0) if _candle else 0,
             _candle.get("close", 0) if _candle else 0,
             get_oi() or 0,
             get_funding() or 0,

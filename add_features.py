@@ -43,7 +43,7 @@ def calculate_rsi(prices, period=14):
     return 100 - (100 / (1 + rs))
 
 rows = []
-with open("btc_data.csv", "r") as f:
+with open("btc_data_v3.csv", "r") as f:
     reader = csv.DictReader(f)
     for row in reader:
         rows.append(row)
@@ -57,11 +57,13 @@ features = []
 
 for i, row in enumerate(rows):
     try:
+        if "open" not in row or "close" not in row:
+            continue
         price = float(row["price"])
         oi = float(row["oi"])
         prices.append(price)
-        highs.append(float(row.get("high24h", price)))
-        lows.append(float(row.get("low24h", price)))
+        highs.append(float(row.get("high", price)))
+        lows.append(float(row.get("low", price)))
 
         atr = calculate_atr(highs, lows, prices)
         rsi = calculate_rsi(prices)
@@ -88,8 +90,14 @@ for i, row in enumerate(rows):
         continue
 
 with open("btc_data_features.csv", "w", newline="") as f:
-    fieldnames = list(features[0].keys())
-    writer = csv.DictWriter(f, fieldnames=fieldnames)
+    fieldnames = [
+        "time","price","vol24h","high24h","low24h","open","high","low","close",
+        "oi","funding","delta","cvd_24h","long_pct","short_pct",
+        "htf_dir","htf_strength","ten_dir","ten_strength",
+        "impulse","impulse_ready","compass",
+        "atr","rsi","hour","price_change_5","oi_change_5",
+    ]
+    writer = csv.DictWriter(f, fieldnames=fieldnames, extrasaction="ignore")
     writer.writeheader()
     writer.writerows(features)
 
