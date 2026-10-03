@@ -88,3 +88,5 @@ test_data.csv
 render_agent/
 training_data_snapshot.csv
 backtest_result.csv
+backup_*
+*.tar.gz
