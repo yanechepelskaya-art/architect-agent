@@ -1319,3 +1319,31 @@ Push работает ТОЛЬКО при включённом Karing VPN.
 
 **Решение:** зафиксировать. Push — успешно.
 
+
+## 77. Cron + collect_data + OHLC — ядро собрано (03.10)
+
+**Дата:** 03.10.2026
+
+**Что сделано:**
+1. Старый процесс collect_data убит.
+2. Новый процесс запущен — с OHLC.
+3. Cron: @reboot для collect_data.
+
+**Cron:**
+0 * * * * update_snapshot.py (каждый час)
+@reboot collect_data.py
+
+**Проверка OHLC:**
+Строка 13:01:23 — open=84588.2, close=84592.4 (open ≠ close).
+Строка 13:02:32 — open=84592.4, close=84592.4 (свеча открылась).
+20 колонок. Данные идут каждые ~60 сек.
+
+**Цепочка данных:**
+OKX → collect_data (60с) → btc_data_v3.csv (20 колонок)
+→ update_snapshot (1ч) → training_data_snapshot.csv
+→ agent_light.py → Telegram.
+
+**Ядро — собрано.**
+
+**Решение:** зафиксировать.
+
