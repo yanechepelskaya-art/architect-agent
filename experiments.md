@@ -1347,3 +1347,40 @@ OKX → collect_data (60с) → btc_data_v3.csv (20 колонок)
 
 **Решение:** зафиксировать.
 
+
+## 78. Итог сессии 03.10 (03.10)
+
+**Дата:** 03.10.2026
+
+**Сделано:**
+- Документация: BUTTONS_MAP, ARCHITECTURE, ROADMAP (265 строк).
+- collect_data.py: OHLC (open, close) — 20 колонок.
+- collect_data.py перезапущен с новым кодом.
+- Cron: @reboot для collect_data.
+- Записи #75–#77.
+
+**Ядро проекта — собрано:**
+- atr.py — единый ATR.
+- collect_data.py — 20 колонок с OHLC.
+- update_snapshot.py — cron каждый час.
+- agent_light.py — 25+ кнопок.
+
+**Цепочка данных:**
+OKX → collect_data (60с) → btc_data_v3.csv
+→ update_snapshot (1ч) → training_data_snapshot.csv
+→ agent_light.py → Telegram.
+
+**Найдено:**
+- ML на синтетике (81 точка).
+- Фаза РЕАГИРУЕТ (исправление #55/#57).
+- Сводка впервые дала прогноз.
+- Компас повернул на Юг.
+- Баги: Дельта, Тень, PF.
+
+**Завтра:**
+1. add_features.py — через OHLC.
+2. Объём — всегда USDT.
+3. Токен — ротация.
+
+**Решение:** зафиксировать. Ядро собрано.
+
